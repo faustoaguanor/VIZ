@@ -1,0 +1,1252 @@
+---
+title: "Análisis y Visualizaciones"
+subtitle: "Cinco preguntas sobre el territorio de Quito"
+author: "Fausto Guano"
+date: last-modified
+date-format: "MMMM YYYY"
+execute:
+  echo: false
+  warning: false
+---
+
+```{python}
+#| label: setup-viz
+
+import json
+import warnings
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import altair as alt
+warnings.filterwarnings("ignore")
+alt.data_transformers.disable_max_rows()
+
+# ── Rutas ──────────────────────────────────────────────
+PREDIOS_PARQUET = "datos/processed/predios_clean.parquet"
+MUESTRA_PARQUET = "datos/processed/predios_muestra.parquet"
+ZONAS_STATS     = "datos/processed/zonas_stats.parquet"
+ZONAS_GEOJSON   = "datos/processed/zonas_geo.json"
+
+# ── Carga de datos ─────────────────────────────────────
+predios  = pd.read_parquet(PREDIOS_PARQUET)
+muestra  = pd.read_parquet(MUESTRA_PARQUET)
+stats    = pd.read_parquet(ZONAS_STATS)
+zonas    = gpd.read_file(ZONAS_GEOJSON)
+
+with open(ZONAS_GEOJSON, encoding="utf-8") as f:
+    zonas_geojson = json.load(f)
+
+print(f"Predios cargados : {len(predios):,}")
+print(f"Muestra cargada  : {len(muestra):,}")
+print(f"Zonas en stats   : {len(stats)}")
+```
+
+```{python}
+#| label: tema-altair
+
+# ── Tema Altair ────────────────────────────────────────
+ZONA_ORDER = (
+    stats.sort_values("valor_m2_mediana", ascending=False)["zona_nombre"].tolist()
+)
+
+ZONA_COLORS = [
+    "#1C4E80", "#0091D5", "#4CB5F5", "#6AB187",
+    "#DBAE58", "#AC3E31", "#488A99", "#A9B4C2",
+    "#7E6752", "#C85250",
+]
+
+def tema_sobrio():
+    return {
+        "config": {
+            "background": "white",
+            "view": {
+                "stroke": "transparent",
+                "continuousWidth":  640,
+                "continuousHeight": 380,
+            },
+            "axis": {
+                "labelFont":    "system-ui, Arial, sans-serif",
+                "titleFont":    "system-ui, Arial, sans-serif",
+                "labelFontSize": 11,
+                "titleFontSize": 12,
+                "gridColor":    "#EBEBEB",
+                "gridOpacity":   1,
+                "domainColor":  "#CCCCCC",
+                "tickColor":    "#CCCCCC",
+                "labelColor":   "#555555",
+                "titleColor":   "#333333",
+            },
+            "title": {
+                "font":       "system-ui, Arial, sans-serif",
+                "fontSize":   14,
+                "fontWeight": "bold",
+                "color":      "#1A1A1A",
+                "anchor":     "start",
+                "offset":     10,
+            },
+            "legend": {
+                "labelFont":     "system-ui, Arial, sans-serif",
+                "titleFont":     "system-ui, Arial, sans-serif",
+                "labelFontSize": 10,
+                "titleFontSize": 11,
+                "labelColor":    "#555555",
+                "titleColor":    "#333333",
+            },
+        }
+    }
+
+alt.themes.register("sobrio", tema_sobrio)
+alt.themes.enable("sobrio")
+
+print("Tema configurado.")
+```
+
+---
+
+## Pregunta 1 · ¿Cómo varía el valor del suelo por m² entre zonas?
+
+El valor del suelo por metro cuadrado (`valor_m2`) es el indicador más directo de la posición relativa de cada zona en el mercado inmobiliario formal. Diferencias sostenidas entre zonas revelan patrones de inversión histórica, conectividad, dotación de servicios y segregación urbana.
+
+### Preparación de datos
+
+```{python}
+#| label: prep-q1
+#| include: false
+
+orden_valor = (
+    stats.sort_values("valor_m2_mediana", ascending=False)["zona_nombre"].tolist()
+)
+
+stats_q1 = stats[[
+    "zona_nombre", "n_predios",
+    "valor_m2_mediana", "valor_m2_p25", "valor_m2_p75",
+]].copy()
+
+print(stats_q1.sort_values("valor_m2_mediana", ascending=False).to_string(index=False))
+```
+
+### Gráfico 1a · Ranking del valor mediano por zona
+
+```{python}
+#| label: chart-ranking-valor
+#| fig-cap: "Valor mediano del suelo por m² según administración zonal. Las barras de error indican el rango intercuartílico (P25–P75)."
+
+base = alt.Chart(stats_q1)
+
+barras = base.mark_bar(cornerRadiusTopRight=4, cornerRadiusBottomRight=4).encode(
+    y=alt.Y("zona_nombre:N",
+            sort=orden_valor,
+            title=None,
+            axis=alt.Axis(labelLimit=160)),
+    x=alt.X("valor_m2_mediana:Q",
+            title="Valor mediano del suelo (USD/m²)",
+            axis=alt.Axis(format=",.0f")),
+    color=alt.Color(
+        "zona_nombre:N",
+        scale=alt.Scale(domain=orden_valor, range=ZONA_COLORS),
+        legend=None,
+    ),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N",     title="Zona"),
+        alt.Tooltip("valor_m2_mediana:Q", title="Mediana USD/m²", format=",.1f"),
+        alt.Tooltip("valor_m2_p25:Q",    title="P25 USD/m²",     format=",.1f"),
+        alt.Tooltip("valor_m2_p75:Q",    title="P75 USD/m²",     format=",.1f"),
+        alt.Tooltip("n_predios:Q",       title="N° predios",     format=","),
+    ],
+)
+
+barras_error = base.mark_errorbar(ticks=True, color="#555555").encode(
+    y=alt.Y("zona_nombre:N", sort=orden_valor),
+    x=alt.X("valor_m2_p25:Q"),
+    x2=alt.X2("valor_m2_p75:Q"),
+)
+
+etiquetas = base.mark_text(align="left", dx=6, fontSize=10, color="#555555").encode(
+    y=alt.Y("zona_nombre:N", sort=orden_valor),
+    x=alt.X("valor_m2_mediana:Q"),
+    text=alt.Text("valor_m2_mediana:Q", format=",.0f"),
+)
+
+chart_ranking = (barras + barras_error + etiquetas).properties(
+    width=580,
+    height=320,
+    title=alt.Title(
+        "Valor catastral del suelo por administración zonal",
+        subtitle="Mediana en USD/m² · Las barras indican rango P25–P75",
+    ),
+)
+
+chart_ranking
+```
+
+### Gráfico 1b · Distribución completa (boxplot)
+
+El ranking anterior muestra la mediana, pero oculta la dispersión interna. El boxplot revela si el valor medio de una zona proviene de predios homogéneos o de una mezcla amplia de situaciones.
+
+::: {.callout-note}
+**Cómo leer un boxplot**
+
+Cada caja representa una zona. Sus partes son:
+
+- **Línea central** - la mediana: el valor que divide exactamente a la mitad todos los predios de esa zona. Es más robusta que el promedio porque no se distorsiona por valores extremos.
+- **Caja (rectángulo)** - el rango entre el percentil 25 y el percentil 75. El 50% de los predios de esa zona cae dentro de esta caja. Una caja ancha = precios muy dispersos; una caja angosta = precios similares entre sí.
+- **Bigotes (líneas que salen de la caja)** - se extienden hasta 1.5 veces el tamaño de la caja. Cubren la mayoría de los casos "normales".
+- **Puntos fuera de los bigotes** - son predios atípicos: valores excepcionalmente altos o bajos para esa zona.
+
+El eje vertical usa **escala logarítmica** por la misma razón que el gráfico anterior: para que un predio de 5 USD/m² y uno de 5.000 USD/m² sean visibles al mismo tiempo.
+:::
+
+```{python}
+#| label: chart-boxplot-valor
+#| fig-cap: "Distribución del valor del suelo por m² en escala logarítmica. Cada caja muestra P25–P75; los bigotes ±1.5×IQR. Calculado sobre el dataset completo."
+
+# Calcular bigotes a partir de los percentiles reales del dataset completo
+stats_box = stats_q1.copy()
+stats_box["iqr"]          = stats_box["valor_m2_p75"] - stats_box["valor_m2_p25"]
+stats_box["whisker_low"]  = (stats_box["valor_m2_p25"] - 1.5 * stats_box["iqr"]).clip(lower=0.5)
+stats_box["whisker_high"] =  stats_box["valor_m2_p75"] + 1.5 * stats_box["iqr"]
+
+_ys   = alt.Scale(type="log")
+_yax  = alt.Axis(format=",.0f")
+_xenc = alt.X("zona_nombre:N", sort=orden_valor, title=None,
+               axis=alt.Axis(labelAngle=-35, labelLimit=140))
+
+_tooltip_box = [
+    alt.Tooltip("zona_nombre:N",      title="Zona"),
+    alt.Tooltip("valor_m2_mediana:Q", title="Mediana (USD/m²)",   format=",.1f"),
+    alt.Tooltip("valor_m2_p25:Q",     title="P25 (USD/m²)",       format=",.1f"),
+    alt.Tooltip("valor_m2_p75:Q",     title="P75 (USD/m²)",       format=",.1f"),
+    alt.Tooltip("whisker_low:Q",      title="Mínimo típico",      format=",.1f"),
+    alt.Tooltip("whisker_high:Q",     title="Máximo típico",      format=",.1f"),
+    alt.Tooltip("n_predios:Q",        title="N° predios",         format=","),
+]
+
+# Base con color por zona (para caja y mediana)
+_bc = alt.Chart(stats_box).encode(
+    x=_xenc,
+    color=alt.Color("zona_nombre:N",
+                    scale=alt.Scale(domain=orden_valor, range=ZONA_COLORS),
+                    legend=None),
+)
+# Base sin color (para bigotes grises)
+_bn = alt.Chart(stats_box).encode(x=_xenc)
+
+# Capa 1: bigotes (regla vertical gris del whisker_low al whisker_high)
+_bigotes = _bn.mark_rule(color="#999999", strokeWidth=1.2).encode(
+    y =alt.Y( "whisker_low:Q",  scale=_ys,
+              title="Valor del suelo (USD/m²) - escala log", axis=_yax),
+    y2=alt.Y2("whisker_high:Q"),
+    tooltip=_tooltip_box,
+)
+# Capa 2: ticks en los extremos de los bigotes
+_tick_lo = _bn.mark_tick(color="#999999", size=12, thickness=1.5).encode(
+    y=alt.Y("whisker_low:Q",  scale=_ys))
+_tick_hi = _bn.mark_tick(color="#999999", size=12, thickness=1.5).encode(
+    y=alt.Y("whisker_high:Q", scale=_ys))
+
+# Capa 3: caja (P25 → P75) coloreada por zona
+_caja = _bc.mark_bar(size=22, stroke="white", strokeWidth=0.5).encode(
+    y =alt.Y( "valor_m2_p25:Q", scale=_ys),
+    y2=alt.Y2("valor_m2_p75:Q"),
+)
+# Capa 4: línea blanca de mediana
+_mediana = _bc.mark_tick(color="white", thickness=2.5, size=22).encode(
+    y=alt.Y("valor_m2_mediana:Q", scale=_ys),
+)
+
+chart_box = alt.layer(
+    _bigotes, _tick_lo, _tick_hi, _caja, _mediana
+).resolve_scale(y="shared").properties(
+    width=620,
+    height=360,
+    title=alt.Title(
+        "Distribución del valor del suelo por zona",
+        subtitle="Dataset completo (~900 k predios) · Caja: P25–P75 · Bigotes: ±1.5×IQR · Línea blanca = mediana",
+    ),
+)
+
+chart_box
+```
+
+### Mapa coroplético · Valor mediano por zona
+
+```{python}
+#| label: mapa-cloropletico
+#| fig-cap: "Valor catastral mediano del suelo por administración zonal (USD/m²). Interactivo: pasa el cursor sobre cada zona para ver el detalle."
+
+import unicodedata
+from shapely.ops import unary_union
+
+
+def _norm(s):
+    if pd.isna(s):
+        return ""
+    return unicodedata.normalize("NFC", str(s).strip())
+
+
+# ── Fusionar La Mariscal en Eugenio Espejo ─────────────────
+_zonas_base = zonas.copy()
+_mask_mariscal = _zonas_base["adm_zonal"].str.lower().str.contains("mariscal", na=False)
+_mask_espejo = _zonas_base["adm_zonal"].str.lower().str.contains("espejo", na=False)
+
+if _mask_mariscal.any() and _mask_espejo.any():
+    _geom_espejo = _zonas_base.loc[_mask_espejo, "geometry"].values[0]
+    _geom_mariscal = _zonas_base.loc[_mask_mariscal, "geometry"].values[0]
+    _zonas_base.loc[_mask_espejo, "geometry"] = unary_union(
+        [_geom_espejo, _geom_mariscal]
+    )
+    _zonas_base = _zonas_base[~_mask_mariscal].reset_index(drop=True)
+
+_zonas_tmp = _zonas_base.copy()
+_zonas_tmp["_key"] = _zonas_tmp["adm_zonal"].apply(_norm)
+_stats_tmp = stats.copy()
+_stats_tmp["_key"] = _stats_tmp["zona_nombre"].apply(_norm)
+
+zonas_mapa = _zonas_tmp.merge(
+    _stats_tmp[["_key", "valor_m2_mediana", "n_predios", "valor_m2_cv"]],
+    on="_key",
+    how="left",
+)
+zonas_mapa_geojson = json.loads(zonas_mapa.to_json())
+
+_geo_data = alt.Data(values=zonas_mapa_geojson["features"])
+
+# Capa 1: zonas sin datos en el catastro (gris neutro)
+_sin_datos = (
+    alt.Chart(_geo_data)
+    .mark_geoshape(
+        fill="#CCCCCC",
+        stroke="white",
+        strokeWidth=0.8,
+    )
+    .encode(
+        tooltip=[
+            alt.Tooltip("properties.adm_zonal:N", title="Zona"),
+            alt.Tooltip("properties.valor_m2_mediana:Q", title="Sin datos en catastro"),
+        ]
+    )
+    .transform_filter("!isValid(datum.properties.valor_m2_mediana)")
+    .project(type="mercator")
+)
+
+# Capa 2: zonas con datos (escala de color)
+_con_datos = (
+    alt.Chart(_geo_data)
+    .mark_geoshape(
+        stroke="white",
+        strokeWidth=1.0,
+    )
+    .encode(
+        color=alt.Color(
+            "properties.valor_m2_mediana:Q",
+            title="Mediana USD/m²",
+            scale=alt.Scale(scheme="orangered"),
+            legend=alt.Legend(
+                orient="right",
+                gradientLength=160,
+                format=",.0f",
+                title="Mediana USD/m²",
+            ),
+        ),
+        tooltip=[
+            alt.Tooltip("properties.adm_zonal:N", title="Zona"),
+            alt.Tooltip(
+                "properties.valor_m2_mediana:Q", title="Mediana USD/m²", format=",.1f"
+            ),
+            alt.Tooltip("properties.n_predios:Q", title="N° predios", format=","),
+            alt.Tooltip(
+                "properties.valor_m2_cv:Q", title="CV (desigualdad)", format=".2f"
+            ),
+        ],
+    )
+    .transform_filter("isValid(datum.properties.valor_m2_mediana)")
+    .project(type="mercator")
+)
+
+# Capa 3: etiquetas de zona (centroides de los polígonos)
+from shapely.geometry import shape as _shape
+
+_NOMBRE_CORTO = {
+    "Eugenio Espejo": "E. Espejo",
+    "Manuela Sáenz": "M. Sáenz",
+}
+_cent_rows = []
+for _feat in zonas_mapa_geojson["features"]:
+    _geom = _shape(_feat["geometry"])
+    _c = _geom.centroid
+    _nombre = _feat["properties"].get("adm_zonal", "")
+    _cent_rows.append(
+        {
+            "zona": _NOMBRE_CORTO.get(_nombre, _nombre),
+            "lon_c": _c.x,
+            "lat_c": _c.y,
+        }
+    )
+_cent_df = pd.DataFrame(_cent_rows)
+
+_labels_coro = (
+    alt.Chart(_cent_df)
+    .mark_text(fontSize=8, fontWeight=600, color="#1C3A57")
+    .encode(
+        longitude="lon_c:Q",
+        latitude="lat_c:Q",
+        text="zona:N",
+    )
+    .project("mercator")
+)
+
+mapa_coro = (_sin_datos + _con_datos + _labels_coro).properties(
+    width=660,
+    height=520,
+    title=alt.Title(
+        "Valor catastral mediano del suelo por zona",
+        subtitle="USD por m² de terreno · La Mariscal está incorporada al polígono de Eugenio Espejo (registro unificado en catastro)",
+    ),
+)
+
+mapa_coro
+```
+
+### Interpretación
+
+:::{.insight-box}
+**Hallazgo 1:** Existe una brecha territorial pronunciada en el valor del suelo del DMQ. Las zonas **Eugenio Espejo** y **Manuela Sáenz** registran los valores medianos más altos, superando ampliamente a zonas como **Quitumbe**, **Eloy Alfaro** y **Chocó Andino**, que se sitúan en el extremo inferior del ranking.
+
+Esta jerarquía no es aleatoria: refleja décadas de inversión diferenciada en infraestructura vial, servicios públicos y centralidades comerciales. El norte consolidado de Quito concentra el valor; el sur y la periferia rural, la extensión.
+:::
+
+---
+
+## Pregunta 2 · ¿Dónde existe mayor desigualdad interna en el valor del suelo?
+
+Una zona puede tener un valor promedio alto y ser relativamente homogénea, o puede mezclar predios de altísimo y bajísimo valor. El **coeficiente de variación** (desviación estándar / media) captura esta dispersión interna: un CV alto indica que dentro de la misma zona conviven realidades muy diferentes.
+
+### Preparación de datos
+
+```{python}
+#| label: prep-q2
+#| include: false
+
+# Orden de zonas por CV descendente
+orden_cv = (
+    stats.sort_values("valor_m2_cv", ascending=False)["zona_nombre"].tolist()
+)
+
+print("Zonas ordenadas por coeficiente de variación (mayor desigualdad primero):")
+print(
+    stats[["zona_nombre", "valor_m2_mediana", "valor_m2_cv"]]
+    .sort_values("valor_m2_cv", ascending=False)
+    .assign(valor_m2_cv=lambda d: d["valor_m2_cv"].round(2))
+    .to_string(index=False)
+)
+```
+
+### Gráfico 2a · Desigualdad interna por zona (CV)
+
+```{python}
+#| label: chart-cv
+#| fig-cap: "Coeficiente de variación del valor del suelo por m² por zona. Un valor mayor indica mayor heterogeneidad interna."
+
+chart_cv = alt.Chart(stats).mark_bar(
+    cornerRadiusTopRight=4,
+    cornerRadiusBottomRight=4,
+).encode(
+    y=alt.Y("zona_nombre:N",
+            sort=orden_cv,
+            title=None,
+            axis=alt.Axis(labelLimit=160)),
+    x=alt.X("valor_m2_cv:Q",
+            title="Coeficiente de variación (desv. estándar / media)",
+            axis=alt.Axis(format=".2f")),
+    color=alt.Color(
+        "valor_m2_cv:Q",
+        scale=alt.Scale(scheme="orangered", domain=[0, stats["valor_m2_cv"].max()]),
+        legend=None,
+    ),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N",   title="Zona"),
+        alt.Tooltip("valor_m2_cv:Q",   title="Coef. variación", format=".3f"),
+        alt.Tooltip("valor_m2_mediana:Q", title="Mediana USD/m²", format=",.1f"),
+        alt.Tooltip("n_predios:Q",     title="N° predios",      format=","),
+    ],
+).properties(
+    width=560,
+    height=300,
+    title=alt.Title(
+        "Heterogeneidad interna en el valor del suelo",
+        subtitle="Coeficiente de variación por administración zonal · Valores más altos = mayor desigualdad",
+    ),
+)
+
+chart_cv
+```
+
+### Gráfico 2b · Valor mediano vs. desigualdad interna
+
+Este scatter compara directamente el nivel de valor de cada zona con su grado de desigualdad interna. Revela si las zonas ricas son más o menos homogéneas que las zonas de menor valor.
+
+```{python}
+#| label: chart-scatter-cv
+#| fig-cap: "Relación entre el valor mediano del suelo y la heterogeneidad interna por zona. El tamaño de los puntos refleja el número de predios."
+
+n_max = stats["n_predios"].max()
+
+scatter_cv = alt.Chart(stats).mark_circle(stroke="white", strokeWidth=1.5).encode(
+    x=alt.X("valor_m2_mediana:Q",
+            title="Valor mediano del suelo (USD/m²)",
+            axis=alt.Axis(format=",.0f")),
+    y=alt.Y("valor_m2_cv:Q",
+            title="Coeficiente de variación",
+            axis=alt.Axis(format=".2f")),
+    size=alt.Size("n_predios:Q",
+                  title="N° de predios",
+                  scale=alt.Scale(range=[60, 900]),
+                  legend=alt.Legend(format=",.0f")),
+    color=alt.Color(
+        "zona_nombre:N",
+        scale=alt.Scale(domain=orden_valor, range=ZONA_COLORS),
+        legend=None,
+    ),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N",      title="Zona"),
+        alt.Tooltip("valor_m2_mediana:Q", title="Mediana USD/m²",  format=",.1f"),
+        alt.Tooltip("valor_m2_cv:Q",      title="CV",               format=".3f"),
+        alt.Tooltip("n_predios:Q",        title="N° predios",       format=","),
+    ],
+)
+
+etiq_cv = alt.Chart(stats).mark_text(
+    align="left", dx=8, dy=-4, fontSize=10, color="#333333"
+).encode(
+    x=alt.X("valor_m2_mediana:Q"),
+    y=alt.Y("valor_m2_cv:Q"),
+    text="zona_nombre:N",
+)
+
+(scatter_cv + etiq_cv).properties(
+    width=580,
+    height=380,
+    title=alt.Title(
+        "Nivel de valor vs. desigualdad interna por zona",
+        subtitle="Cada punto es una administración zonal · Tamaño proporcional al número de predios",
+    ),
+)
+```
+
+### Interpretación
+
+:::{.insight-box}
+**Hallazgo 2:** Las zonas de mayor valor mediano no son necesariamente las más homogéneas. La **Manuela Sáenz / Centro Histórico** tiende a presentar alta dispersión: en su territorio conviven predios comerciales de valor elevado junto con vivienda popular de bajo valor catastral. En contraste, zonas periféricas como **Quitumbe** o **Chocó Andino** pueden ser más internas homogéneas, aunque en un rango de valores más bajo.
+
+Este resultado es analíticamente relevante: el coeficiente de variación alto en zonas centrales puede indicar procesos de gentrificación en curso o herencia de un tejido urbano heterogéneo históricamente acumulado.
+:::
+
+---
+
+## Pregunta 3 · ¿Qué relación existe entre el tamaño del predio y su avalúo?
+
+En teoría económica, el precio de un bien debería crecer con su cantidad. Pero en el mercado inmobiliario urbano esta relación no es lineal: un predio pequeño en una zona premium puede valer más que un predio grande en la periferia. La pendiente y la forma de esta relación revelan cómo se "paga" la localización frente al tamaño.
+
+### Preparación de datos
+
+```{python}
+#| label: prep-q3
+#| include: false
+
+# Muestra para scatter: excluir extremos en área
+muestra_q3 = muestra.dropna(subset=["zona_nombre", "arterrpredio", "valtotal", "uso"]).copy()
+muestra_q3 = muestra_q3[
+    (muestra_q3["arterrpredio"] > 10) &
+    (muestra_q3["arterrpredio"] < muestra_q3["arterrpredio"].quantile(0.98)) &
+    (muestra_q3["valtotal"]     > 100) &
+    (muestra_q3["valtotal"]     < muestra_q3["valtotal"].quantile(0.98))
+]
+
+# Categorías de uso para color
+USOS_SCATTER = ["HABITACIONAL", "COMERCIAL", "SERVICIOS", "INDUSTRIAL"]
+COLORES_USO  = ["#2166AC", "#F46D43", "#4DAC26", "#D01C8B"]
+
+muestra_q3["uso_scatter"] = muestra_q3["uso"].apply(
+    lambda x: x if x in USOS_SCATTER else "OTROS"
+)
+
+print(f"Muestra para scatter: {len(muestra_q3):,} predios")
+print(muestra_q3["uso_scatter"].value_counts().to_string())
+```
+
+### Gráfico 3a · Área del terreno vs. Avalúo total
+
+::: {.callout-note}
+**Guía de lectura paso a paso**
+
+**Paso 1 - Cada punto es un predio real.** Pasa el cursor sobre cualquiera para ver su zona, uso, área y avalúo exactos.
+
+**Paso 2 - Eje horizontal = tamaño del predio.**
+Un punto a la izquierda es un predio pequeño (50–200 m²). A la derecha, uno grande (1.000 m² o más). Los ejes avanzan de **10 en 10 veces**, no de 100 en 100: la distancia entre 100 y 1.000 m² es la misma que entre 1.000 y 10.000 m². Esto se llama escala logarítmica y permite ver juntos predios muy distintos sin que los grandes aplasten a los pequeños.
+
+**Paso 3 - Eje vertical = avalúo total del predio en USD.**
+Arriba = predios caros. Abajo = predios baratos. También en escala logarítmica.
+
+**Paso 4 - Las líneas diagonales grises son guías de precio por m².**
+Imagina un predio de 200 m² valuado en \$60.000. ¿Cuánto vale cada metro cuadrado? \$60.000 ÷ 200 = **300 USD/m²**. Ese predio queda exactamente sobre la línea de 300 USD/m². Uno que quede *por encima* de esa línea vale más de 300 USD/m²; uno *por debajo*, menos. Las tres líneas marcan umbrales de referencia: 50 (periferia barata), 300 (valor medio) y 1.500 USD/m² (zonas premium).
+
+**Click en la leyenda** para aislar un uso del suelo y comparar su nube de puntos contra las líneas de referencia.
+:::
+
+```{python}
+#| label: chart-scatter-area-valor
+#| fig-cap: "Relación entre el área del terreno y el avalúo total en escala logarítmica, según destino económico."
+
+import numpy as np
+
+USOS_ORDEN   = ["HABITACIONAL", "COMERCIAL", "SERVICIOS", "INDUSTRIAL", "OTROS"]
+COLORES_FULL = ["#2166AC", "#F46D43", "#4DAC26", "#D01C8B", "#AAAAAA"]
+
+_orden_render = {"OTROS": 0, "HABITACIONAL": 1, "INDUSTRIAL": 2, "SERVICIOS": 3, "COMERCIAL": 4}
+muestra_q3 = muestra_q3.copy()
+muestra_q3["_render_order"] = muestra_q3["uso_scatter"].map(_orden_render).fillna(0)
+muestra_q3 = muestra_q3.sort_values("_render_order")
+
+# ── Líneas de referencia: precio constante por m² ──────────
+_x_lo, _x_hi = (muestra_q3["arterrpredio"].quantile(0.02),
+                 muestra_q3["arterrpredio"].quantile(0.97))
+_ref_prices   = [50, 300, 1500]
+_ref_data     = pd.DataFrame([
+    {"arterrpredio": x, "valtotal": p * x, "_ref": f"{p} USD/m²"}
+    for p in _ref_prices
+    for x in np.logspace(np.log10(_x_lo), np.log10(_x_hi), 60)
+])
+
+_ref_lines = alt.Chart(_ref_data).mark_line(
+    strokeDash=[5, 3], strokeWidth=1.1, opacity=0.45,
+).encode(
+    x=alt.X("arterrpredio:Q", scale=alt.Scale(type="log")),
+    y=alt.Y("valtotal:Q",     scale=alt.Scale(type="log")),
+    color=alt.Color(
+        "_ref:N",
+        scale=alt.Scale(
+            domain=[f"{p} USD/m²" for p in _ref_prices],
+            range=["#CCCCCC", "#999999", "#555555"],
+        ),
+        legend=None,
+    ),
+)
+
+_ref_label_data = pd.DataFrame([
+    {"arterrpredio": _x_hi, "valtotal": p * _x_hi * 1.05, "label": f"{p} USD/m²"}
+    for p in _ref_prices
+])
+_ref_labels = alt.Chart(_ref_label_data).mark_text(
+    align="left", dx=4, fontSize=9, color="#777777",
+).encode(
+    x=alt.X("arterrpredio:Q", scale=alt.Scale(type="log")),
+    y=alt.Y("valtotal:Q",     scale=alt.Scale(type="log")),
+    text="label:N",
+)
+
+# ── Puntos: predios ─────────────────────────────────────────
+sel_uso = alt.selection_point(fields=["uso_scatter"], bind="legend")
+
+_scatter = alt.Chart(muestra_q3).mark_circle(size=25).encode(
+    x=alt.X("arterrpredio:Q",
+            title="Área del terreno (m²)",
+            scale=alt.Scale(type="log"),
+            axis=alt.Axis(format=",.0f")),
+    y=alt.Y("valtotal:Q",
+            title="Avalúo total (USD)",
+            scale=alt.Scale(type="log"),
+            axis=alt.Axis(format="$,.0f")),
+    color=alt.Color(
+        "uso_scatter:N",
+        title="Destino económico",
+        scale=alt.Scale(domain=USOS_ORDEN, range=COLORES_FULL),
+        sort=USOS_ORDEN,
+    ),
+    opacity=alt.condition(sel_uso, alt.value(0.65), alt.value(0.04)),
+    order=alt.Order("_render_order:Q", sort="ascending"),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N",  title="Zona"),
+        alt.Tooltip("uso_scatter:N",  title="Uso"),
+        alt.Tooltip("arterrpredio:Q", title="Área (m²)",    format=",.0f"),
+        alt.Tooltip("valtotal:Q",     title="Avalúo (USD)",  format="$,.0f"),
+        alt.Tooltip("valor_m2:Q",     title="USD/m²",        format=",.1f"),
+    ],
+).add_params(sel_uso)
+
+scatter_av = (_ref_lines + _ref_labels + _scatter).resolve_scale(
+    color="independent",
+).properties(
+    width=560,
+    height=440,
+    title=alt.Title(
+        "Tamaño del predio y avalúo total según destino económico",
+        subtitle="Líneas grises = precio de referencia constante por m² · Click en la leyenda para filtrar",
+    ),
+)
+
+scatter_av
+```
+
+### Gráfico 3b · Valor por m² según tamaño de predio (histograma por cuartil)
+
+Los predios más pequeños, ¿tienen mayor o menor valor por m²? Esta pregunta distingue el efecto precio (escasez en zonas densas) del efecto escala.
+
+```{python}
+#| label: chart-cuartil-area
+#| fig-cap: "Distribución del valor por m² según cuartil de área del terreno. Permite identificar si el valor unitario varía con el tamaño."
+
+muestra_q3["cuartil_area"] = pd.qcut(
+    muestra_q3["arterrpredio"], q=4,
+    labels=["Q1 · Predios pequeños", "Q2", "Q3", "Q4 · Predios grandes"]
+)
+
+chart_hist_cuartil = alt.Chart(muestra_q3).mark_bar(opacity=0.8).encode(
+    x=alt.X("valor_m2:Q",
+            bin=alt.Bin(maxbins=40),
+            title="Valor del suelo (USD/m²)"),
+    y=alt.Y("count():Q",
+            title="N° predios",
+            stack=None,
+            axis=alt.Axis(titleFontSize=9)),
+    color=alt.Color(
+        "cuartil_area:N",
+        title="Cuartil de área",
+        scale=alt.Scale(scheme="blues"),
+    ),
+    row=alt.Row("cuartil_area:N", title=""),
+    tooltip=[
+        alt.Tooltip("cuartil_area:N", title="Cuartil"),
+        alt.Tooltip("valor_m2:Q",     title="Valor m²",   format=",.1f"),
+        alt.Tooltip("count():Q",      title="N° predios", format=","),
+    ],
+).properties(
+    width=540,
+    height=90,
+    title=alt.Title(
+        "Distribución del valor por m² según tamaño del predio",
+        subtitle="Los predios más pequeños tienden a tener mayor valor unitario",
+    ),
+)
+
+chart_hist_cuartil
+```
+
+### Interpretación
+
+:::{.insight-box}
+**Hallazgo 3:** La relación entre tamaño y avalúo existe, pero la localización la modula fuertemente. Los predios comerciales y de servicios exhiben los valores por m² más altos independientemente de su superficie. Los predios pequeños habitacionales, concentrados en zonas centrales y bien conectadas, muestran valores unitarios superiores a predios grandes en la periferia.
+
+El gráfico por cuartil confirma que los predios del Q1 (más pequeños) tienden a concentrarse en distribuciones de valor más altas: el precio por m² decrece a medida que el tamaño del predio crece. Este efecto, la prima del tamaño reducido,es característico de mercados urbanos densos donde la localización vale más que la extensión.
+:::
+
+---
+
+## Pregunta 4 · ¿Cómo se distribuye el uso del suelo por zona?
+
+El destino económico de los predios no se distribuye homogéneamente en el territorio: la especialización funcional de cada zona, residencial, comercial, industrial, define en gran medida su dinámica urbana y su demanda de servicios. Esta pregunta mapea esa composición.
+
+### Preparación de datos
+
+```{python}
+#| label: prep-q4
+#| include: false
+
+USOS_PRINCIPALES = ["HABITACIONAL", "COMERCIAL", "SERVICIOS", "INDUSTRIAL", "SIN USO", "OTROS"]
+COLORES_USO_MAP  = {
+    "HABITACIONAL": "#2166AC",
+    "COMERCIAL":    "#F46D43",
+    "SERVICIOS":    "#4DAC26",
+    "INDUSTRIAL":   "#D01C8B",
+    "SIN USO":      "#AAAAAA",
+    "NO TIENE":     "#DDDDDD",
+    "OTROS":        "#C7B39E",
+}
+
+uso_zona = (
+    predios
+    .dropna(subset=["zona_nombre", "uso"])
+    .groupby(["zona_nombre", "uso"])
+    .size()
+    .reset_index(name="n")
+)
+
+uso_zona_pct = uso_zona.copy()
+totales = uso_zona.groupby("zona_nombre")["n"].transform("sum")
+uso_zona_pct["pct"] = uso_zona_pct["n"] / totales * 100
+
+USO_ORDEN_MAP = {
+    "HABITACIONAL": 0, "OTROS": 1, "NO TIENE": 2,
+    "COMERCIAL": 3,    "SERVICIOS": 4, "INDUSTRIAL": 5, "SIN USO": 6,
+}
+uso_zona_pct["uso_orden"] = uso_zona_pct["uso"].map(USO_ORDEN_MAP).fillna(99).astype(int)
+
+print("Composición por zona (% de predios):")
+pivot = uso_zona_pct.pivot(index="zona_nombre", columns="uso", values="pct").fillna(0).round(1)
+print(pivot.to_string())
+```
+
+### Gráfico 4a · Composición de uso del suelo (barras 100%)
+
+```{python}
+#| label: chart-uso-suelo
+#| fig-cap: "Composición del uso del suelo por zona. Cada celda muestra el porcentaje de predios de esa categoría en esa zona."
+
+# ── Paleta del proyecto (CSS variables) ────────────────────
+_AZUL_OSCURO = "#1C3A57"   # azul-oscuro del proyecto
+_AZUL_MEDIO  = "#1C4E80"
+_GRIS_BORDE  = "#D0D5DC"
+
+# ── Datos ──────────────────────────────────────────────────
+_todos_usos  = ["HABITACIONAL", "COMERCIAL", "SERVICIOS",
+                "INDUSTRIAL", "SIN USO", "NO TIENE"]
+_heat_full   = uso_zona_pct[uso_zona_pct["uso"].isin(_todos_usos)].copy()
+
+# ── Celdas del heatmap ──────────────────────────────────────
+_celdas = alt.Chart(_heat_full).mark_rect(
+    stroke="white", strokeWidth=2,
+).encode(
+    y=alt.Y("zona_nombre:N",
+            sort=orden_valor,
+            title=None,
+            axis=alt.Axis(labelLimit=160, labelFontSize=11)),
+    x=alt.X("uso:N",
+            sort=_todos_usos,
+            title=None,
+            axis=alt.Axis(
+                labelAngle=-25,
+                labelFontSize=11,
+                labelLimit=100,
+                orient="bottom",
+            )),
+    color=alt.Color(
+        "pct:Q",
+        scale=alt.Scale(
+            range=["#F5F7FA", _AZUL_OSCURO],   # blanco del proyecto → azul oscuro
+            domainMin=0,
+        ),
+        legend=alt.Legend(
+            title="% de predios",
+            orient="right",
+            gradientLength=160,
+            gradientThickness=12,
+            format=".0f",
+            labelFontSize=10,
+            titleFontSize=10,
+        ),
+    ),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N", title="Zona"),
+        alt.Tooltip("uso:N",         title="Uso"),
+        alt.Tooltip("pct:Q",         title="% predios", format=".1f"),
+        alt.Tooltip("n:Q",           title="N° predios", format=","),
+    ],
+)
+
+# ── Etiquetas numéricas dentro de cada celda ───────────────
+_etiquetas = alt.Chart(_heat_full).mark_text(
+    fontSize=10,
+    fontWeight="normal",
+).encode(
+    y=alt.Y("zona_nombre:N", sort=orden_valor),
+    x=alt.X("uso:N",         sort=_todos_usos),
+    text=alt.Text("pct:Q", format=".1f"),
+    color=alt.condition(
+        "datum.pct >= 35",        # celdas muy oscuras → texto blanco
+        alt.value("white"),
+        alt.value(_AZUL_OSCURO),  # celdas claras → texto del proyecto
+    ),
+)
+
+chart_uso = (_celdas + _etiquetas).properties(
+    width=520,
+    height=310,
+    title=alt.Title(
+        "Composición del uso del suelo por administración zonal",
+        subtitle="Porcentaje de predios por categoría · Más oscuro = mayor concentración",
+    ),
+)
+
+chart_uso
+```
+
+### Gráfico 4b · Predios sin uso activo por zona
+
+Los predios clasificados como "SIN USO" o "NO TIENE" representan potencial urbanístico no aprovechado. Su distribución geográfica es relevante para políticas de densificación y gestión del suelo vacante.
+
+```{python}
+#| label: chart-sin-uso
+#| fig-cap: "Porcentaje de predios sin uso activo declarado por zona. Incluye las categorías 'SIN USO' y 'NO TIENE'."
+
+sin_uso = (
+    predios
+    .dropna(subset=["zona_nombre"])
+    .groupby("zona_nombre")
+    .apply(lambda g: pd.Series({
+        "pct_sin_uso": (g["uso"].isin(["SIN USO", "NO TIENE"])).mean() * 100,
+        "n_predios": len(g),
+    }))
+    .reset_index()
+)
+
+orden_sin_uso = sin_uso.sort_values("pct_sin_uso", ascending=False)["zona_nombre"].tolist()
+
+chart_sinuso = alt.Chart(sin_uso).mark_bar(
+    cornerRadiusTopRight=4,
+    cornerRadiusBottomRight=4,
+).encode(
+    y=alt.Y("zona_nombre:N",
+            sort=orden_sin_uso,
+            title=None,
+            axis=alt.Axis(labelLimit=160)),
+    x=alt.X("pct_sin_uso:Q",
+            title="Predios sin uso activo (%)",
+            axis=alt.Axis(format=".1f")),
+    color=alt.Color(
+        "pct_sin_uso:Q",
+        scale=alt.Scale(scheme="greys", domain=[0, sin_uso["pct_sin_uso"].max()]),
+        legend=None,
+    ),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N",  title="Zona"),
+        alt.Tooltip("pct_sin_uso:Q",  title="% sin uso", format=".1f"),
+        alt.Tooltip("n_predios:Q",    title="Total predios", format=","),
+    ],
+).properties(
+    width=540,
+    height=300,
+    title=alt.Title(
+        "Porcentaje de predios sin uso activo declarado",
+        subtitle="Categorías 'SIN USO' y 'NO TIENE' · Potencial de activación del suelo",
+    ),
+)
+
+chart_sinuso
+```
+
+### Mapa de clusters · ¿Dónde se concentra el suelo sin uso?
+
+El gráfico anterior muestra *cuánto* suelo sin uso tiene cada zona. Este mapa muestra *dónde* exactamente se localiza, con clustering interactivo: los puntos se agrupan al alejarte y se expanden individualmente al acercarte. Cada punto es un predio sin uso activo declarado.
+
+```{python}
+#| label: build-cluster-map
+#| output: false
+#| echo: false
+
+import folium
+from folium.plugins import FastMarkerCluster
+import os
+
+os.makedirs("docs", exist_ok=True)
+
+_vacios_map = (
+    predios[predios["uso"].isin(["SIN USO", "NO TIENE"])]
+    .dropna(subset=["lat", "lon"])
+    .sample(min(15_000, len(predios[predios["uso"].isin(["SIN USO", "NO TIENE"])])),
+            random_state=42)
+)
+
+_m_cluster = folium.Map(location=[-0.195, -78.50], zoom_start=11,
+                        tiles="CartoDB positron")
+_ = FastMarkerCluster(
+    data=_vacios_map[["lat", "lon"]].values.tolist(),
+    options={"maxClusterRadius": 50, "disableClusteringAtZoom": 16,
+             "spiderfyOnMaxZoom": True, "showCoverageOnHover": False},
+).add_to(_m_cluster)
+_m_cluster.save("docs/mapa_predios_vacios_cluster.html")
+del _m_cluster
+_n_vacios = len(_vacios_map)
+```
+
+```{python}
+#| label: mapa-suelo-vacio
+#| output: asis
+
+print(f'<a href="mapa_predios_vacios_cluster.html" target="_blank" class="map-launch-card">'
+      f'<div class="map-launch-badge">Leaflet · MarkerCluster · Interactivo</div>'
+      f'<div class="map-launch-icon">🟢</div>'
+      f'<div class="map-launch-title">Mapa de clusters · Predios sin uso activo</div>'
+      f'<div class="map-launch-sub">{_n_vacios:,} predios · '
+      f'Los clusters se expanden al acercarse · Abre a pantalla completa →</div>'
+      f'</a>')
+```
+
+### Interpretación
+
+:::{.insight-box}
+**Hallazgo 4:** El uso habitacional domina en todas las zonas, pero su participación relativa varía entre zonas periurbanas (donde supera el 80%) y zonas centrales (donde las categorías comercial y de servicios ganan peso considerable). **Manuela Sáenz / Centro Histórico** y **Eugenio Espejo** exhiben la mayor diversidad funcional.
+
+La concentración de predios sin uso activo en determinadas zonas, particularmente en la periferia norte y noroccidente, señala oportunidades de política para densificación o activación productiva del suelo subutilizado. El mapa de densidad revela además que ese suelo vacante no se distribuye uniformemente dentro de cada zona: aparece en parches concentrados, lo que sugiere procesos de urbanización incompleta más que dispersión aleatoria.
+:::
+
+---
+
+## Pregunta 5 · ¿Dónde se concentran espacialmente los predios de mayor valor?
+
+Las preguntas anteriores analizaron el territorio por zona. Esta última dimensión explora la distribución espacial continua del valor del suelo: no como categorías, sino como puntos en el mapa, cada uno representando un predio real.
+
+### Mapa de puntos · Tejido territorial del DMQ
+
+::: {.callout-note}
+**Por qué la leyenda de colores no tiene números redondos**
+
+La escala de color usa **intervalos cuantílicos**: en lugar de dividir el rango de precios en partes iguales (0–500, 500–1.000, 1.000–1.500…), divide los *predios* en grupos de igual tamaño. Cada franja de color representa exactamente la misma cantidad de predios.
+
+¿Por qué? Porque el valor del suelo en Quito está muy sesgado: la mayoría de predios valen entre 20 y 200 USD/m², pero unos pocos llegan a 3.000 USD/m². Con una escala lineal, el 90% de los puntos del mapa tendrían el mismo color claro y el resto apenas se distinguiría. La escala cuantílica garantiza que todos los colores sean visibles en el mapa y que las diferencias espaciales se lean con claridad.
+:::
+
+```{python}
+#| label: mapa-puntos
+#| fig-cap: "Mapa de dispersión del catastro predial. Cada punto es un predio, coloreado por su valor de suelo por m²."
+
+muestra_mapa = (
+    muestra.dropna(subset=["lon", "lat", "valor_m2"])
+    .sample(min(10_000, len(muestra)), random_state=42)
+    .copy()
+)
+
+# Cuantil para color (reduce efecto de outliers en la escala)
+q95 = muestra_mapa["valor_m2"].quantile(0.95)
+muestra_mapa["valor_m2_capped"] = muestra_mapa["valor_m2"].clip(upper=q95)
+
+# ── Background: límites de zonas ──────────────────────
+background = alt.Chart(alt.Data(values=zonas_geojson["features"])).mark_geoshape(
+    fill="#F0F0F0",
+    stroke="white",
+    strokeWidth=1.2,
+).project(type="mercator")
+
+# ── Puntos: predios ────────────────────────────────────
+puntos = alt.Chart(muestra_mapa).mark_circle(
+    opacity=0.45,
+    size=6,
+).encode(
+    longitude="lon:Q",
+    latitude="lat:Q",
+    color=alt.Color(
+        "valor_m2_capped:Q",
+        title="Valor m² (USD)",
+        scale=alt.Scale(
+            scheme="plasma",
+            type="quantile",
+        ),
+        legend=alt.Legend(
+            orient="right",
+            gradientLength=140,
+            format=",.0f",
+        ),
+    ),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N",      title="Zona"),
+        alt.Tooltip("uso:N",             title="Uso"),
+        alt.Tooltip("valor_m2:Q",        title="Valor m² (USD)", format=",.1f"),
+        alt.Tooltip("valtotal:Q",        title="Avalúo (USD)",   format="$,.0f"),
+        alt.Tooltip("arterrpredio:Q",    title="Área (m²)",      format=",.0f"),
+    ],
+).project(type="mercator")
+
+mapa_puntos = (background + puntos).properties(
+    width=680,
+    height=580,
+    title=alt.Title(
+        "El territorio como datos: valor catastral predio a predio",
+        subtitle="Cada punto representa un predio · Color indica valor del suelo por m²",
+    ),
+)
+
+mapa_puntos
+```
+
+### Mapa de calor · Densidad de predios en el territorio
+
+El mapa de puntos anterior muestra el valor de cada predio. Este mapa de calor (kernel density) responde una pregunta diferente: **¿dónde están más concentrados los predios?** Las zonas rojas son las más densas en número de predios; las azules, las más dispersas. Esto revela la estructura urbana del DMQ - el núcleo consolidado vs. la periferia en expansión. Interactivo: zoom y paneo libres.
+
+```{python}
+#| label: build-heatmap
+#| output: false
+#| echo: false
+
+import folium
+from folium.plugins import HeatMap
+import os
+
+os.makedirs("docs", exist_ok=True)
+
+_hdata      = muestra.dropna(subset=["lat", "lon"]).copy()
+_heat_list  = list(zip(_hdata["lat"], _hdata["lon"]))
+
+_m_heat = folium.Map(location=[-0.195, -78.50], zoom_start=11,
+                     tiles="CartoDB positron")
+
+_ = HeatMap(
+    _heat_list,
+    radius=10,
+    blur=18,
+    max_zoom=14,
+    min_opacity=0.0,
+    gradient={
+        "0.4":  "#4575b4",
+        "0.62": "#abd9e9",
+        "0.76": "#fee090",
+        "0.89": "#f46d43",
+        "1.0":  "#a50026",
+    },
+).add_to(_m_heat)
+
+_leyenda_html = (
+    '<div style="position:fixed;bottom:30px;right:10px;z-index:9999;'
+    'background:white;padding:10px 14px;border-radius:6px;'
+    'border:1px solid #ccc;font-size:11px;font-family:system-ui;'
+    'box-shadow:0 2px 6px rgba(0,0,0,.2);line-height:1.7;">'
+    '<b style="display:block;margin-bottom:4px;">Densidad de predios</b>'
+    '<span style="background:linear-gradient(to right,#4575b4,#abd9e9,#fee090,#f46d43,#a50026);'
+    'display:block;width:120px;height:10px;border-radius:2px;margin-bottom:3px;"></span>'
+    '<span style="float:left;color:#555;">Baja</span>'
+    '<span style="float:right;color:#555;">Alta</span>'
+    '</div>'
+)
+_ = _m_heat.get_root().html.add_child(folium.Element(_leyenda_html))
+_m_heat.save("docs/mapa_densidad_valor.html")
+del _m_heat
+
+# Inyectar CSS de opacidad al 75% en el canvas del heatmap
+with open("docs/mapa_densidad_valor.html", "r", encoding="utf-8") as _f:
+    _html_content = _f.read()
+_html_content = _html_content.replace(
+    "</style>",
+    ".leaflet-heatmap-layer { opacity: 0.75 !important; }</style>",
+    1,
+)
+with open("docs/mapa_densidad_valor.html", "w", encoding="utf-8") as _f:
+    _f.write(_html_content)
+
+_n_heat = len(_heat_list)
+```
+
+```{python}
+#| label: mapa-densidad-valor
+#| output: asis
+
+print(f'<a href="mapa_densidad_valor.html" target="_blank" class="map-launch-card">'
+      f'<div class="map-launch-badge">Leaflet · HeatMap.js · Kernel de densidad</div>'
+      f'<div class="map-launch-icon">🌡️</div>'
+      f'<div class="map-launch-title">Mapa de calor · Densidad de predios en el territorio</div>'
+      f'<div class="map-launch-sub">{_n_heat:,} predios · '
+      f'Rojo = zona más densa · Azul = zona dispersa · Abre a pantalla completa →</div>'
+      f'</a>')
+```
+
+### Gráfico complementario · Distribución espacial por régimen de propiedad
+
+```{python}
+#| label: mapa-propiedad-horizontal
+#| fig-cap: "Distribución espacial de predios en Propiedad Horizontal vs. Unipropiedad."
+
+muestra_ph = muestra.dropna(subset=["lon", "lat", "propiedad"]).copy()
+
+ph  = muestra_ph[muestra_ph["propiedad"] == "PROPIEDAD HORIZONTAL"]
+uni = muestra_ph[muestra_ph["propiedad"] == "UNIPROPIEDAD"]
+
+# Combinar en un solo dataframe con etiqueta legible para la leyenda
+_ph_combined = pd.concat([
+    uni.sample(min(len(uni), 8000), random_state=1),
+    ph.sample(min(len(ph),  8000), random_state=1),
+]).copy()
+
+_ph_combined["Régimen"] = _ph_combined["propiedad"].map({
+    "UNIPROPIEDAD":          "Unipropiedad",
+    "PROPIEDAD HORIZONTAL":  "Propiedad Horizontal",
+})
+
+# Ordenar para que PH renderice encima de Unipropiedad
+_ph_combined = _ph_combined.sort_values("Régimen", ascending=True)
+
+fondo_ph = alt.Chart(alt.Data(values=zonas_geojson["features"])).mark_geoshape(
+    fill="#F2F2F2", stroke="white", strokeWidth=1,
+).project(type="mercator")
+
+pts_combined = alt.Chart(_ph_combined).mark_circle(size=5, opacity=0.45).encode(
+    longitude="lon:Q",
+    latitude="lat:Q",
+    color=alt.Color(
+        "Régimen:N",
+        title="Régimen de propiedad",
+        scale=alt.Scale(
+            domain=["Unipropiedad", "Propiedad Horizontal"],
+            range=["#2166AC", "#F46D43"],
+        ),
+        legend=alt.Legend(
+            orient="top-right",
+            symbolSize=80,
+            labelFontSize=11,
+            titleFontSize=11,
+        ),
+    ),
+    tooltip=[
+        alt.Tooltip("zona_nombre:N", title="Zona"),
+        alt.Tooltip("Régimen:N",     title="Régimen"),
+    ],
+).project(type="mercator")
+
+mapa_ph = (fondo_ph + pts_combined).properties(
+    width=640,
+    height=540,
+    title=alt.Title(
+        "Distribución espacial por régimen de propiedad",
+        subtitle="La Propiedad Horizontal se concentra en los ejes norte de mayor densidad",
+    ),
+)
+
+mapa_ph
+```
+
+### Interpretación
+
+:::{.insight-box}
+**Hallazgo 5:** El mapa de puntos revela con claridad la estructura de valor del suelo en el espacio. El gradiente de color ,de tonos oscuros en el norte y centro a tonos claros en el sur y periferia, confirma visualmente los patrones estadísticos hallados.
+
+La Propiedad Horizontal se concentra en los ejes principales del norte (av. NNUU, Eloy Alfaro, González Suárez) y en el centro norte de la ciudad, mientras que la unipropiedad se extiende de manera más difusa hacia la periferia.
+
+Este patrón es coherente con los procesos de densificación vertical que Quito ha experimentado en sus zonas de mayor valor desde los años 2000: allí donde el suelo es más caro, edificar en altura resulta económicamente más atractivo.
+:::
+
+---
+
+## Conclusiones del análisis
+
+```{python}
+#| label: tabla-resumen
+#| echo: false
+
+resumen = stats[["zona_nombre", "n_predios", "valor_m2_mediana", "valor_m2_cv",
+                  "pct_habitacional", "pct_ph"]].copy()
+resumen = resumen.sort_values("valor_m2_mediana", ascending=False)
+resumen.columns = ["Zona", "N° Predios", "Mediana USD/m²", "CV (desigualdad)",
+                   "% Habitacional", "% Prop. Horizontal"]
+
+resumen["N° Predios"]      = resumen["N° Predios"].apply(lambda x: f"{x:,.0f}")
+resumen["Mediana USD/m²"]  = resumen["Mediana USD/m²"].apply(lambda x: f"${x:,.1f}")
+resumen["CV (desigualdad)"]= resumen["CV (desigualdad)"].apply(lambda x: f"{x:.2f}")
+resumen["% Habitacional"]  = resumen["% Habitacional"].apply(lambda x: f"{x*100:.1f}%")
+resumen["% Prop. Horizontal"] = resumen["% Prop. Horizontal"].apply(lambda x: f"{x*100:.1f}%")
+
+resumen.style.set_caption("Resumen de indicadores catastrales por administración zonal")
+```
+
+El análisis del catastro predial del DMQ permite llegar a cinco conclusiones sustantivas:
+
+1. **La desigualdad territorial en el valor del suelo es estructural.** La diferencia entre las zonas de mayor y menor valor catastral por m² supera varias veces la mediana global. Esta brecha no puede atribuirse únicamente a preferencias del mercado: es el resultado acumulado de décadas de inversión pública diferenciada.
+
+2. **La heterogeneidad interna es mayor en las zonas centrales.** El coeficiente de variación más elevado en Manuela Sáenz y el centro sugiere que estas zonas son espacios de transición donde aún conviven usos y valores muy dispares.
+
+3. **El valor unitario del suelo decrece con el tamaño del predio.** Los predios pequeños en zonas bien localizadas son los más caros por m². Esto tiene implicaciones directas para política de vivienda y captura de plusvalías.
+
+4. **El uso habitacional domina pero no es uniforme.** La diversidad funcional, comercial, servicios, industrial, aumenta en las zonas de mayor valor y conectividad, confirmando la especialización funcional del espacio urbano.
+
+5. **La densificación vertical sigue al valor del suelo.** La concentración de Propiedad Horizontal en los ejes norte de mayor valor catastral confirma que la edificación en altura responde a la lógica económica del suelo: donde el terreno es más caro, construir hacia arriba maximiza el retorno por m².
+
+::: {.callout-warning}
+**Nota sobre el alcance del análisis**
+
+Las cifras en USD/m² de este proyecto son **avalúos catastrales**, no precios de mercado. El catastro municipal actualiza sus valoraciones periódicamente y puede subestimar los valores reales de transacción, especialmente en zonas de alta demanda. Los hallazgos son válidos para comparar zonas entre sí y caracterizar la estructura territorial del DMQ, pero los valores absolutos no deben interpretarse como precios de compraventa vigentes en el mercado inmobiliario.
+:::
+

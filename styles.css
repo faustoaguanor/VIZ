@@ -1,0 +1,416 @@
+/* ═══════════════════════════════════════════════════════════
+   Anatomía del Territorio · Quito
+   Estilos académicos y sobrios
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Variables ──────────────────────────────────────────── */
+:root {
+  --azul-oscuro:  #1C3A57;
+  --azul-medio:   #1C4E80;
+  --azul-claro:   #3E79A8;
+  --gris-texto:   #1E1E2E;
+  --gris-suave:   #5A5F6A;
+  --gris-borde:   #D0D5DC;
+  --fondo-claro:  #F5F7FA;
+  --blanco:       #FFFFFF;
+}
+
+/* ── Tipografía base ────────────────────────────────────── */
+body {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--gris-texto);
+}
+
+p { margin-bottom: 1.1rem; }
+
+h1 {
+  font-size: 1.95rem;
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  margin-bottom: 0.4rem;
+}
+
+h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  border-bottom: 2px solid var(--gris-borde);
+  padding-bottom: 0.35rem;
+  margin-top: 2.8rem;
+  margin-bottom: 1rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--azul-medio);
+  margin-top: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+h4 {
+  font-size: 0.97rem;
+  font-weight: 600;
+  color: var(--gris-texto);
+}
+
+/* ── Navbar ─────────────────────────────────────────────── */
+.navbar {
+  background-color: var(--azul-oscuro) !important;
+  border-bottom: 3px solid var(--azul-medio);
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+.navbar-brand {
+  color: #FFFFFF !important;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.navbar .nav-link {
+  color: rgba(255, 255, 255, 0.88) !important;
+  font-weight: 500;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.8rem;
+  transition: color 0.15s;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link.active {
+  color: #FFFFFF !important;
+  text-decoration: underline;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.page-footer {
+  background-color: var(--fondo-claro);
+  border-top: 1px solid var(--gris-borde);
+  color: var(--gris-suave);
+  font-size: 0.82rem;
+  padding: 0.85rem 0;
+}
+
+/* ── Hero Section (index.qmd) ───────────────────────────── */
+.project-hero {
+  background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul-medio) 100%);
+  padding: 3.5rem 2.5rem 3rem;
+  border-radius: 6px;
+  margin-bottom: 2.5rem;
+  color: #FFFFFF;
+}
+
+.project-hero h1 {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  border: none;
+  margin-top: 0.6rem;
+  margin-bottom: 0.3rem;
+  line-height: 1.2;
+}
+
+.project-hero h3 {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.05rem;
+  font-weight: 400;
+  margin-top: 0.3rem;
+}
+
+.hero-badge {
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.85rem;
+  border-radius: 3px;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Pregunta Cards ─────────────────────────────────────── */
+.pregunta-card {
+  border-left: 4px solid var(--azul-medio);
+  background-color: var(--fondo-claro);
+  padding: 0.9rem 1.4rem;
+  margin-bottom: 0.7rem;
+  border-radius: 0 4px 4px 0;
+}
+
+.pregunta-card p {
+  margin: 0;
+  color: var(--gris-texto);
+  font-size: 0.96rem;
+  line-height: 1.65;
+}
+
+.pregunta-num {
+  font-weight: 700;
+  color: var(--azul-medio);
+  font-size: 0.97rem;
+  margin-right: 0.3rem;
+}
+
+/* ── Metric Grid ────────────────────────────────────────── */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.metric-card {
+  background-color: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-top: 3px solid var(--azul-medio);
+  border-radius: 4px;
+  padding: 1.2rem 1rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--azul-medio);
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: 0.78rem;
+  color: var(--gris-suave);
+  margin-top: 0.3rem;
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Flujo Grid ─────────────────────────────────────────── */
+.flujo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.2rem;
+  margin: 1.5rem 0;
+}
+
+.flujo-item {
+  background-color: var(--blanco);
+  border: 1px solid var(--gris-borde);
+  border-radius: 4px;
+  padding: 1.4rem 1.3rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.flujo-num {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--gris-borde);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.flujo-item h4 {
+  font-size: 0.93rem;
+  font-weight: 700;
+  color: var(--azul-oscuro);
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+}
+
+.flujo-item p {
+  font-size: 0.83rem;
+  color: var(--gris-suave);
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* ── Insight Box ────────────────────────────────────────── */
+.insight-box {
+  background-color: #EDF3FA;
+  border-left: 4px solid var(--azul-claro);
+  border-radius: 0 4px 4px 0;
+  padding: 1.1rem 1.4rem;
+  margin: 1.5rem 0;
+  font-size: 0.94rem;
+  color: var(--gris-texto);
+  line-height: 1.7;
+}
+
+.insight-box strong {
+  color: var(--azul-oscuro);
+}
+
+/* ── Tablas ─────────────────────────────────────────────── */
+.table {
+  font-size: 0.88rem;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.table thead th {
+  background-color: var(--azul-oscuro);
+  color: #FFFFFF;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.6rem 0.9rem;
+  border: none;
+}
+
+.table td {
+  padding: 0.52rem 0.9rem;
+  border-bottom: 1px solid var(--gris-borde);
+  vertical-align: middle;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: var(--fondo-claro);
+}
+
+/* ── Bloques de código ──────────────────────────────────── */
+pre {
+  border: 1px solid var(--gris-borde);
+  border-radius: 4px;
+  font-size: 0.84rem;
+  background-color: #FAFBFC;
+}
+
+code:not(pre code) {
+  font-size: 0.86em;
+  color: #B03060;
+  background-color: #F8EEF2;
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+/* ── TOC ────────────────────────────────────────────────── */
+#TOC {
+  font-size: 0.84rem;
+}
+
+#TOC .nav-link {
+  color: var(--gris-suave);
+  padding: 0.22rem 0.4rem;
+  border-radius: 3px;
+}
+
+#TOC .nav-link:hover {
+  color: var(--azul-medio);
+  background-color: var(--fondo-claro);
+}
+
+#TOC .nav-link.active {
+  color: var(--azul-medio);
+  font-weight: 600;
+}
+
+/* ── Callouts ───────────────────────────────────────────── */
+.callout {
+  border-radius: 4px;
+  font-size: 0.93rem;
+}
+
+.callout-note {
+  border-left-color: var(--azul-claro);
+}
+
+.callout-tip {
+  border-left-color: #2D8A4E;
+}
+
+/* ── Separadores ────────────────────────────────────────── */
+hr {
+  border: none;
+  border-top: 1px solid var(--gris-borde);
+  margin: 2.5rem 0;
+}
+
+/* ── Mapas e iframes ────────────────────────────────────── */
+iframe {
+  border: 1px solid var(--gris-borde);
+  border-radius: 4px;
+  width: 100%;
+}
+
+/* Folium maps rendered via output: asis */
+.folium-map {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* ── Tarjeta de lanzamiento de mapa externo ─────────────── */
+.map-launch-card {
+  display: block;
+  text-decoration: none !important;
+  background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul-medio) 100%);
+  border-radius: 6px;
+  padding: 2.6rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  margin: 1.2rem 0;
+  border: none;
+}
+
+.map-launch-card:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  text-decoration: none !important;
+}
+
+.map-launch-icon {
+  font-size: 2.4rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.map-launch-title {
+  color: #FFFFFF;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  font-family: system-ui, Arial, sans-serif;
+  display: block;
+}
+
+.map-launch-sub {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-family: system-ui, Arial, sans-serif;
+  display: block;
+  margin-bottom: 0;
+}
+
+.map-launch-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.75rem;
+  border-radius: 3px;
+  margin-bottom: 0.9rem;
+  display: block;
+}
+
+/* ── Subtítulo del documento ────────────────────────────── */
+.quarto-title-meta {
+  margin-top: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--gris-suave);
+  font-weight: 400;
+}

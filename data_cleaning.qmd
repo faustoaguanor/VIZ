@@ -1,0 +1,489 @@
+---
+title: "Preparación y Limpieza de Datos"
+subtitle: "De la geodatabase municipal a un dataset analítico"
+author: "Fausto Guano"
+date: last-modified
+date-format: "MMMM YYYY"
+---
+
+Este documento describe el proceso completo de carga, validación, limpieza y transformación de los datos catastrales del Distrito Metropolitano de Quito. El objetivo es construir un dataset listo para el análisis visual, con variables derivadas que permitan responder las preguntas analíticas del proyecto.
+
+---
+
+## 1. Configuración del entorno
+
+```{python}
+#| label: setup
+#| output: false
+
+import os
+import json
+import warnings
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import pyogrio
+
+warnings.filterwarnings("ignore")
+
+# ── Rutas ──────────────────────────────────────────────
+GDB_PATH  = "datos/CATASTRO_PREDIAL.gdb/CATASTRO_PREDIAL.gdb"
+SHP_PATH  = "datos/Administraciones_Zonales/organizacion_territorial_zonal_a.shp"
+PROC_DIR  = "datos/processed"
+
+os.makedirs(PROC_DIR, exist_ok=True)
+
+PREDIOS_PARQUET  = os.path.join(PROC_DIR, "predios_clean.parquet")
+MUESTRA_PARQUET  = os.path.join(PROC_DIR, "predios_muestra.parquet")
+ZONAS_STATS      = os.path.join(PROC_DIR, "zonas_stats.parquet")
+ZONAS_GEOJSON    = os.path.join(PROC_DIR, "zonas_geo.json")
+
+print("Entorno configurado.")
+print(f"  geopandas : {gpd.__version__}")
+print(f"  pandas    : {pd.__version__}")
+print(f"  pyogrio   : {pyogrio.__version__}")
+```
+
+---
+
+## 2. Carga de datos
+
+### 2.1 Zonas administrativas
+
+```{python}
+#| label: carga-zonas
+
+zonas = gpd.read_file(SHP_PATH)
+
+print(f"Registros   : {len(zonas)}")
+print(f"CRS         : {zonas.crs}")
+print(f"Columnas    : {list(zonas.columns)}")
+print()
+print(zonas[["cod_adm_zo", "adm_zonal"]].to_string(index=False))
+```
+
+El shapefile contiene **10 polígonos** , uno por administración zonal,  en coordenadas geográficas WGS84 (EPSG:4326). Todos los registros tienen geometría válida.
+
+### 2.2 Catastro predial
+
+La geodatabase contiene aproximadamente un millón de predios. Para eficiencia, se cargan únicamente las columnas necesarias para el análisis.
+
+```{python}
+#| label: carga-predios
+
+COLS = [
+    "estado", "propiedad", "desteconomico",
+    "arterrpredio", "arconstruccion",
+    "valterreno", "valtotal",
+    "parroquia", "admzonal",
+]
+
+print("Cargando catastro predial…")
+predios_raw = pyogrio.read_dataframe(GDB_PATH, layer="PREDIO", columns=COLS)
+
+print(f"\nRegistros cargados : {len(predios_raw):,}")
+print(f"CRS                : {predios_raw.crs}")
+print(f"Columnas           : {list(predios_raw.columns)}")
+```
+
+---
+
+## 3. Exploración inicial
+
+```{python}
+#| label: exploracion
+
+print("── Distribución por administración zonal ──────────────────")
+print(predios_raw["admzonal"].value_counts().to_string())
+
+print("\n── Distribución por destino económico ─────────────────────")
+print(predios_raw["desteconomico"].value_counts().head(12).to_string())
+
+print("\n── Distribución por tipo de propiedad ─────────────────────")
+print(predios_raw["propiedad"].value_counts().to_string())
+```
+
+```{python}
+#| label: estadisticas-basicas
+
+print("── Estadísticas descriptivas (variables numéricas) ──────────")
+cols_num = ["arterrpredio", "arconstruccion", "valterreno", "valtotal"]
+print(
+    predios_raw[cols_num]
+    .describe()
+    .apply(lambda col: col.map(lambda x: f"{x:,.1f}"))
+    .to_string()
+)
+```
+
+```{python}
+#| label: nulos
+
+print("── Valores nulos por columna ────────────────────────────────")
+nulos = predios_raw[COLS].isnull().sum()
+pct   = (nulos / len(predios_raw) * 100).round(2)
+print(pd.concat([nulos.rename("nulos"), pct.rename("%")], axis=1).to_string())
+```
+
+::: {.callout-note}
+Los campos numéricos `arterrpredio`, `valterreno` y `valtotal` no presentan valores nulos, lo cual simplifica considerablemente la limpieza.
+:::
+
+---
+
+## 4. Validación y limpieza espacial
+
+### 4.1 Sistema de referencia de coordenadas
+
+El catastro predial usa una proyección local del DMQ (**SIRES-DMQ**), una Transverse Mercator centrada en -78.5° de longitud con un factor de escala específico del municipio. Para integrarla con el shapefile de zonas (EPSG:4326) y generar visualizaciones geográficas, es necesario reproyectar.
+
+```{python}
+#| label: reproyeccion
+
+print(f"CRS original : {predios_raw.crs}")
+
+predios_4326 = predios_raw.to_crs(epsg=4326)
+print(f"CRS destino  : {predios_4326.crs}")
+```
+
+### 4.2 Geometrías inválidas
+
+```{python}
+#| label: geometrias-invalidas
+
+invalidas = (~predios_4326.geometry.is_valid).sum()
+nulas     = predios_4326.geometry.isna().sum()
+
+print(f"Geometrías nulas    : {nulas:,}")
+print(f"Geometrías inválidas: {invalidas:,}")
+
+if invalidas > 0:
+    predios_4326["geometry"] = predios_4326.geometry.buffer(0)
+    invalidas_post = (~predios_4326.geometry.is_valid).sum()
+    print(f"Inválidas tras buffer(0): {invalidas_post:,}")
+```
+
+### 4.3 Extracción de centroides
+
+Convertimos cada polígono de predio a su centroide para facilitar las visualizaciones de puntos y los análisis de dispersión espacial. Las coordenadas se almacenan como columnas numéricas.
+
+```{python}
+#| label: centroides
+
+centroides = predios_4326.geometry.centroid
+predios_4326["lon"] = centroides.x
+predios_4326["lat"] = centroides.y
+
+# Verificación: centroides dentro del bounding box de Quito
+lon_ok = predios_4326["lon"].between(-79.0, -78.2)
+lat_ok = predios_4326["lat"].between(-0.6, 0.2)
+fuera  = (~(lon_ok & lat_ok)).sum()
+print(f"Centroides fuera del bbox de Quito: {fuera:,}")
+
+# Eliminar registros con coordenadas fuera del rango esperado
+predios_4326 = predios_4326[lon_ok & lat_ok].copy()
+print(f"Registros tras filtro geográfico: {len(predios_4326):,}")
+```
+
+---
+
+## 5. Limpieza de atributos
+
+### 5.1 Filtro por estado activo
+
+```{python}
+#| label: filtro-estado
+
+print("Estados disponibles:", predios_4326["estado"].unique())
+predios = predios_4326[predios_4326["estado"] == "ACTIVO"].copy()
+n_tras_activo = len(predios)
+print(f"Predios ACTIVOS: {n_tras_activo:,}")
+```
+
+### 5.2 Detección y tratamiento de outliers
+
+Predios con área de terreno cero o negativa, o con valor de suelo cero, corresponden a errores de registro o predios sin valoración. Se eliminan del análisis.
+
+```{python}
+#| label: outliers-base
+
+antes = len(predios)
+predios = predios[
+    (predios["arterrpredio"] > 1) &
+    (predios["valterreno"]   > 0) &
+    (predios["valtotal"]     > 0)
+].copy()
+
+n_tras_filtro_valor = len(predios)
+print(f"Registros antes del filtro : {antes:,}")
+print(f"Registros eliminados       : {antes - n_tras_filtro_valor:,}  ({(antes-n_tras_filtro_valor)/antes*100:.2f}%)")
+print(f"Registros conservados      : {n_tras_filtro_valor:,}")
+```
+
+Para el análisis de distribuciones, se detectan outliers extremos en el área del terreno usando el percentil 99.9. Estos predios, típicamente grandes propiedades rurales o errores catastrales,  se conservan en el dataset principal pero se excluyen de los gráficos de distribución para no distorsionar las escalas.
+
+```{python}
+#| label: outliers-percentil
+
+p999_area = predios["arterrpredio"].quantile(0.999)
+p999_val  = predios["valtotal"].quantile(0.999)
+
+print(f"Percentil 99.9 - área del terreno : {p999_area:,.0f} m²")
+print(f"Percentil 99.9 - avalúo total     : {p999_val:,.0f} USD")
+print()
+print(f"Predios con área > {p999_area:,.0f} m²: {(predios['arterrpredio'] > p999_area).sum():,}")
+```
+
+---
+
+## 6. Construcción de variables
+
+### 6.1 Valor del suelo por metro cuadrado
+
+La variable clave del análisis. Representa el precio catastral de referencia por unidad de superficie de terreno.
+
+```{python}
+#| label: valor-m2
+
+predios["valor_m2"] = predios["valterreno"] / predios["arterrpredio"]
+
+# Recortar outliers extremos de valor_m2 para análisis estadístico
+p99_vm2 = predios["valor_m2"].quantile(0.99)
+print(f"Percentil 99 de valor_m²: {p99_vm2:,.1f} USD/m²")
+
+predios_analisis = predios[predios["valor_m2"] <= p99_vm2].copy()
+print(f"Predios en ventana de análisis (valor_m2 ≤ p99): {len(predios_analisis):,}")
+
+print("\nDistribución de valor_m² (dataset limpio):")
+print(predios_analisis["valor_m2"].describe().apply(lambda x: f"{x:,.2f}").to_string())
+```
+
+### 6.2 Ratio de construcción
+
+Mide la intensidad de uso del suelo: qué fracción del área del terreno está efectivamente construida.
+
+```{python}
+#| label: ratio-construccion
+
+predios_analisis["ratio_construccion"] = (
+    predios_analisis["arconstruccion"] / predios_analisis["arterrpredio"]
+).clip(upper=5.0)
+```
+
+### 6.3 Normalización de nombres de zonas
+
+El campo `admzonal` del catastro usa una nomenclatura distinta a la del shapefile. Se crea un mapeo explícito para integrar ambas fuentes.
+
+```{python}
+#| label: mapeo-zonas
+
+ZONA_MAP = {
+    "NORTE O EUGENIO ESPEJO": "Eugenio Espejo",
+    "CENTRO O MANUELA SAENZ": "Manuela Sáenz",
+    "ELOY ALFARO"           : "Eloy Alfaro",
+    "LA DELICIA"            : "La Delicia",
+    "QUITUMBE"              : "Quitumbe",
+    "CALDERON"              : "Calderón",
+    "TUMBACO"               : "Tumbaco",
+    "LOS CHILLOS"           : "Los Chillos",
+    "AEROPUERTO"            : "Eugenio Espejo",   # dentro del perímetro
+    "NOROCENTRAL"           : "La Delicia",
+    "NOROCCIDENTE"          : "Chocó Andino",
+}
+
+predios_analisis["zona_nombre"] = predios_analisis["admzonal"].map(ZONA_MAP)
+
+print("Distribución por zona normalizada:")
+print(predios_analisis["zona_nombre"].value_counts().to_string())
+```
+
+### 6.4 Simplificación del destino económico
+
+Las categorías minoritarias de uso del suelo se agrupan en "Otros" para mejorar la legibilidad de las visualizaciones.
+
+```{python}
+#| label: destino-simplificado
+
+USOS_PRINCIPALES = [
+    "HABITACIONAL", "COMERCIAL", "SERVICIOS",
+    "INDUSTRIAL", "SIN USO", "NO TIENE",
+]
+
+predios_analisis["uso"] = predios_analisis["desteconomico"].apply(
+    lambda x: x if x in USOS_PRINCIPALES else "OTROS"
+)
+
+print("Distribución de usos del suelo:")
+print(predios_analisis["uso"].value_counts().to_string())
+```
+
+---
+
+## 7. Integración espacial
+
+Se realiza un join espacial entre los centroides de los predios y los polígonos de zonas administrativas para verificar la consistencia del campo `admzonal` con la geometría real.
+
+```{python}
+#| label: spatial-join
+
+# Crear GeoDataFrame de centroides
+predios_pts = gpd.GeoDataFrame(
+    predios_analisis[["zona_nombre", "valor_m2"]],
+    geometry=gpd.points_from_xy(predios_analisis["lon"], predios_analisis["lat"]),
+    crs="EPSG:4326"
+)
+
+# Join espacial
+joined = gpd.sjoin(predios_pts.sample(50_000, random_state=42),
+                   zonas[["adm_zonal", "geometry"]],
+                   how="left", predicate="within")
+
+# Comparación
+coincide = (joined["zona_nombre"] == joined["adm_zonal"]).sum()
+total_join = joined["adm_zonal"].notna().sum()
+print(f"Muestra validada     : {len(joined):,} predios")
+print(f"Coincidencia exacta  : {coincide:,}  ({coincide/total_join*100:.1f}%)")
+print(f"Discrepancias        : {total_join - coincide:,}")
+```
+
+::: {.callout-note}
+Una coincidencia alta confirma que el campo `admzonal` del catastro es geoespacialmente consistente. Las discrepancias menores se deben a predios en límites exactos entre zonas.
+:::
+
+---
+
+## 8. Exportación de datos procesados
+
+### 8.1 Dataset principal
+
+```{python}
+#| label: exportar-predios
+
+cols_exportar = [
+    "propiedad", "uso", "zona_nombre", "parroquia",
+    "arterrpredio", "arconstruccion", "valterreno", "valtotal",
+    "valor_m2", "ratio_construccion", "lon", "lat",
+]
+
+predios_final = predios_analisis[cols_exportar].copy()
+predios_final.to_parquet(PREDIOS_PARQUET, index=False)
+
+print(f"Dataset guardado: {PREDIOS_PARQUET}")
+print(f"Registros       : {len(predios_final):,}")
+print(f"Columnas        : {list(predios_final.columns)}")
+```
+
+### 8.2 Muestra estratificada para visualizaciones de puntos
+
+Se seleccionan hasta 3.000 predios por zona para mantener la representatividad sin sobrecargar el navegador.
+
+```{python}
+#| label: exportar-muestra
+
+base_muestra = predios_final.dropna(subset=["zona_nombre", "lon", "lat"])
+
+muestra = (
+    base_muestra
+    .assign(_rand=np.random.default_rng(42).random(len(base_muestra)))
+    .sort_values(["zona_nombre", "_rand"])
+    .groupby("zona_nombre", group_keys=False)
+    .head(3_000)
+    .drop(columns="_rand")
+)
+
+muestra.to_parquet(MUESTRA_PARQUET, index=False)
+print(f"Muestra guardada : {MUESTRA_PARQUET}")
+print(f"Registros        : {len(muestra):,}")
+print(muestra["zona_nombre"].value_counts().to_string())
+```
+
+### 8.3 Estadísticas por zona
+
+```{python}
+#| label: exportar-zonas-stats
+
+zonas_stats = (
+    predios_final
+    .dropna(subset=["zona_nombre"])
+    .groupby("zona_nombre")
+    .agg(
+        n_predios          = ("valor_m2",         "count"),
+        valor_m2_mediana   = ("valor_m2",         "median"),
+        valor_m2_media     = ("valor_m2",         "mean"),
+        valor_m2_p25       = ("valor_m2",         lambda x: x.quantile(0.25)),
+        valor_m2_p75       = ("valor_m2",         lambda x: x.quantile(0.75)),
+        valor_m2_std       = ("valor_m2",         "std"),
+        valor_m2_cv        = ("valor_m2",         lambda x: x.std() / x.mean()),
+        valtotal_mediana   = ("valtotal",         "median"),
+        area_mediana       = ("arterrpredio",     "median"),
+        pct_habitacional   = ("uso",              lambda x: (x == "HABITACIONAL").mean()),
+        pct_ph             = ("propiedad",        lambda x: (x == "PROPIEDAD HORIZONTAL").mean()),
+    )
+    .reset_index()
+)
+
+zonas_stats.to_parquet(ZONAS_STATS, index=False)
+print("Estadísticas por zona:")
+print(
+    zonas_stats[["zona_nombre", "n_predios", "valor_m2_mediana", "valor_m2_cv"]]
+    .sort_values("valor_m2_mediana", ascending=False)
+    .to_string(index=False)
+)
+```
+
+### 8.4 GeoJSON de zonas para mapas
+
+```{python}
+#| label: exportar-geojson
+
+zonas_export = zonas[["adm_zonal", "cod_adm_zo", "geometry"]].copy()
+zonas_export.to_file(ZONAS_GEOJSON, driver="GeoJSON")
+
+print(f"GeoJSON guardado: {ZONAS_GEOJSON}")
+print(f"Zonas exportadas: {len(zonas_export)}")
+```
+
+---
+
+## 9. Resumen del proceso
+
+```{python}
+#| label: resumen-proceso
+#| echo: false
+
+n_original = len(predios_raw)
+n_geografico = len(predios_4326)
+n_final = len(predios_analisis)
+n_muestra = len(muestra)
+
+etapas = [
+    ("Dataset original (GDB)", n_original),
+    ("Tras filtro geográfico (bbox Quito)", n_geografico),
+    ("Solo predios en estado ACTIVO", n_tras_activo),
+    ("Filtro área > 1 m² y valor > 0", n_tras_filtro_valor),
+    ("Filtro outliers valor_m² (≤ p99)", n_final),
+    ("Muestra estratificada (visualizaciones)", n_muestra),
+]
+
+print(f"{'Etapa':<45} {'Registros':>12} {'Reducción acum.':>16}")
+print("─" * 76)
+for etapa, n in etapas:
+    pct = f"{(1 - n/n_original)*100:.1f}%" if n != n_original else "—"
+    bold = "**" if "final" in etapa.lower() or "≤ p99" in etapa else ""
+    print(f"{bold}{etapa:<45}{bold} {n:>12,} {pct:>16}")
+```
+
+::: {.callout-tip}
+**Decisiones metodológicas clave:**
+
+- Se excluyen predios con área ≤ 1 m² o valor catastral igual a cero por representar registros incompletos o simbólicos.
+- El percentil 99 de `valor_m2` se usa como límite superior para el análisis distribucional; predios por encima de este umbral pueden ser propiedades con características atípicas (fachadas comerciales muy valiosas, lotes en zonas premium).
+- Las geometrías inválidas se corrigen con `buffer(0)`, técnica estándar en análisis geoespacial.
+- El mapeo de zonas conserva coherencia con la denominación oficial del shapefile.
+- La zona **La Mariscal** no tiene registro independiente en el catastro predial; sus predios están asignados a la administración zonal **Eugenio Espejo**, por lo que ambas se tratan como una unidad en el análisis estadístico y se fusionan geométricamente en los mapas.
+:::
+
+
+---
+
+Los datos procesados están disponibles en `datos/processed/`. Continúe con el documento de **[Análisis y Visualizaciones](visualizations.qmd)**.

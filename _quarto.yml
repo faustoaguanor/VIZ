@@ -1,0 +1,33 @@
+project:
+  type: website
+  output-dir: docs
+
+jupyter: viz-quito
+
+website:
+  title: "Visualización del Territorio · Quito"
+  navbar:
+    left:
+      - text: "Inicio"
+        href: index.qmd
+      - text: "Preparación de Datos"
+        href: data_cleaning.qmd
+      - text: "Análisis y Visualizaciones"
+        href: visualizations.qmd
+  page-footer:
+    left: "Proyecto de Visualización de Datos · 2026"
+    right: "Datos: Municipio del DMQ"
+
+format:
+  html:
+    theme: flatly
+    css: styles.css
+    lang: es
+    toc: true
+    toc-depth: 3
+    toc-title: "Contenido"
+    smooth-scroll: true
+    highlight-style: github
+    code-fold: true
+    code-tools: true
+    code-summary: "Ver código"

@@ -1,0 +1,19 @@
+# Quarto
+/.quarto/
+/_site/
+/.ipynb_checkpoints/
+**/*.quarto_ipynb
+
+# Python virtual environment
+.venv/
+
+# Datos brutos — geodatabases y shapefiles (no subir)
+datos/CATASTRO.gdb/
+datos/CATASTRO_PREDIAL.gdb/
+datos/Administraciones_Zonales/
+
+# Datos procesados — reproducibles desde los .qmd, son pesados
+datos/processed/
+
+# Claude Code settings locales
+.claude/

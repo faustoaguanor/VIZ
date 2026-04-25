@@ -1,0 +1,158 @@
+---
+title: "Inicio"
+author: "Fausto Guano"
+date: last-modified
+date-format: "MMMM YYYY"
+format:
+  html:
+    toc: false
+---
+
+:::{.project-hero}
+<span class="hero-badge">Análisis Geoespacial · DMQ · 2026</span>
+
+# Visualización del Territorio
+
+### Valor catastral, uso del suelo y desigualdad territorial en el Distrito Metropolitano de Quito
+:::
+
+## El problema
+
+El suelo no tiene el mismo valor en todas las esquinas de una ciudad. En Quito, la diferencia entre un metro cuadrado de terreno en el norte consolidado y uno en el sur periurbano puede superar las cinco o seis veces en valor catastral. Esta desigualdad no es solo económica: refleja décadas de inversión pública diferenciada, patrones de segregación residencial y una planificación urbana que históricamente concentró servicios e infraestructura en determinadas zonas de la ciudad.
+
+El catastro municipal, inventario sistemático de cada predio, su uso, su superficie y su valor, es una de las fuentes de datos más completas y subutilizadas para entender cómo se distribuye el territorio. Cada registro es un punto de intersección entre la geografía física, la economía urbana y la política de ordenamiento territorial.
+
+Este proyecto interroga ese dataset: ¿qué revela el catastro predial de Quito sobre cómo está organizado, valorado y utilizado el territorio?
+
+## Motivación
+
+La planificación urbana basada en evidencia requiere comprender con precisión cómo varían los indicadores territoriales en el espacio. Para gestores municipales, analistas y ciudadanos, conocer dónde se concentra el valor del suelo, dónde existe mayor desigualdad interna y cómo se distribuye el uso del suelo es fundamental para:
+
+- diseñar políticas de plusvalía y captura de valor
+- identificar zonas que requieren inversión pública prioritaria
+- monitorear la presión de cambio de uso del suelo
+- sustentar decisiones de planificación con datos objetivos
+
+## Preguntas analíticas
+
+Este proyecto busca responder cinco preguntas concretas a partir del análisis del catastro predial:
+
+:::{.pregunta-card}
+<p><span class="pregunta-num">01 ·</span> ¿Cómo varía el valor del suelo por metro cuadrado entre las administraciones zonales del DMQ, y qué tan pronunciadas son esas diferencias?</p>
+:::
+
+:::{.pregunta-card}
+<p><span class="pregunta-num">02 ·</span> ¿Qué zonas presentan mayor desigualdad interna en el valor catastral del suelo, y dónde coexisten predios de valores muy dispares?</p>
+:::
+
+:::{.pregunta-card}
+<p><span class="pregunta-num">03 ·</span> ¿Existe una relación entre el tamaño del predio y su avalúo total, y varía esa relación según el destino económico del predio?</p>
+:::
+
+:::{.pregunta-card}
+<p><span class="pregunta-num">04 ·</span> ¿Cómo se distribuye el uso del suelo por destino económico en cada zona, y qué patrones territoriales revela esa distribución?</p>
+:::
+
+:::{.pregunta-card}
+<p><span class="pregunta-num">05 ·</span> ¿Dónde se concentran espacialmente los predios de mayor valor catastral, y cómo se distribuye el régimen de propiedad horizontal en el territorio del DMQ?</p>
+:::
+
+## El dataset
+
+El análisis utiliza dos fuentes de datos geoespaciales del Municipio del Distrito Metropolitano de Quito:
+
+### Catastro Predial (`CATASTRO_PREDIAL.gdb`)
+
+Base de datos catastral con información de cada predio del DMQ. Contiene atributos geométricos (polígonos de cada lote) y alfanuméricos:
+
+:::{.metric-grid}
+<div class="metric-card">
+  <div class="metric-value">~1 M</div>
+  <div class="metric-label">Predios registrados</div>
+</div>
+<div class="metric-card">
+  <div class="metric-value">36</div>
+  <div class="metric-label">Variables por predio</div>
+</div>
+<div class="metric-card">
+  <div class="metric-value">11</div>
+  <div class="metric-label">Zonas administrativas</div>
+</div>
+<div class="metric-card">
+  <div class="metric-value">7+</div>
+  <div class="metric-label">Categorías de uso del suelo</div>
+</div>
+:::
+
+Variables clave: `admzonal` (administración zonal), `desteconomico` (uso del suelo), `arterrpredio` (área del terreno en m²), `arconstruccion` (área construida en m²), `valterreno` (avalúo del terreno en USD), `valtotal` (avalúo total en USD), `propiedad` (régimen de propiedad).
+
+::: {.callout-warning}
+**Limitación importante del dataset**
+
+Los avalúos catastrales son **valoraciones administrativas** del municipio, no precios de mercado. El proceso de actualización catastral no es continuo: los valores se revisan periódicamente y pueden rezagarse respecto a la dinámica inmobiliaria real, especialmente en zonas de alta demanda donde el mercado crece más rápido que el catastro.
+
+Esto implica dos cosas para este análisis: (1) los valores absolutos en USD/m² no deben interpretarse como precios de compraventa vigentes; (2) los **patrones relativos entre zonas** —cuál zona vale más, cuánta desigualdad interna existe, cómo se distribuye el uso, sí son válidos y comparables, ya que el sesgo afecta a todas las zonas por igual. El catastro es, en ese sentido, un espejo del territorio aunque no sea un termómetro exacto del mercado.
+:::
+
+### Administraciones Zonales (`organizacion_territorial_zonal_a.shp`)
+
+Shapefile con los límites geográficos de las 10 administraciones zonales del DMQ, en sistema de referencia EPSG:4326 (WGS84).
+
+| Código | Zona Administrativa |
+|--------|---------------------|
+| AZEE   | Eugenio Espejo      |
+| AZLD   | La Delicia          |
+| AZEA   | Eloy Alfaro         |
+| AZQ    | Quitumbe            |
+| AZMS   | Manuela Sáenz       |
+| AZCA   | Calderón            |
+| AZT    | Tumbaco             |
+| AZCH   | Los Chillos         |
+| AZLM   | La Mariscal         |
+| AZCHA  | Chocó Andino        |
+
+## Marco metodológico
+
+El diseño de este proyecto sigue el **modelo anidado de Munzner (2009)**, el marco de referencia más influyente en el diseño de visualizaciones de datos. El modelo plantea que cualquier proyecto de visualización debe resolverse en cuatro niveles, de afuera hacia adentro:
+
+| Nivel | Pregunta central | Aplicación en este proyecto |
+|-------|-----------------|----------------------------|
+| **Dominio** | ¿Cuál es el problema real? | Desigualdad territorial en el valor del suelo del DMQ |
+| **Abstracción** | ¿Qué datos y tareas responden ese problema? | Cinco preguntas analíticas concretas sobre valor, desigualdad, uso y localización |
+| **Codificación visual** | ¿Qué tipo de gráfico es el más adecuado para cada tarea? | Barras para comparar, boxplot para distribuciones, scatter para relaciones, coroplético y mapa de puntos para el espacio |
+| **Algoritmo** | ¿Cómo se implementa eficientemente? | GeoPandas, Altair y muestras estratificadas para manejar ~1 M de predios en el navegador |
+
+La principal advertencia del modelo es que un error en un nivel superior, por ejemplo, mal entender el problema del dominio— arruina todo lo que viene debajo, sin importar qué tan sofisticada sea la implementación técnica. Este proyecto parte del dominio (planificación urbana y catastro) antes de decidir cualquier codificación visual.
+
+## Estructura del proyecto
+
+El análisis sigue un flujo de tres etapas:
+
+:::{.flujo-grid}
+<div class="flujo-item">
+  <div class="flujo-num">01</div>
+  <h4>Preparación de Datos</h4>
+  <p>Carga, validación, limpieza y transformación de los datos catastrales y geoespaciales</p>
+</div>
+<div class="flujo-item">
+  <div class="flujo-num">02</div>
+  <h4>Análisis y Visualización</h4>
+  <p>Respuesta a las preguntas analíticas mediante visualizaciones con Altair y mapas interactivos</p>
+</div>
+<div class="flujo-item">
+  <div class="flujo-num">03</div>
+  <h4>Hallazgos e Interpretación</h4>
+  <p>Narrativa de resultados orientada a tomadores de decisión y planificación territorial</p>
+</div>
+:::
+
+:::{.callout-note}
+**Flujo de trabajo recomendado:** Para reproducir el análisis completo, ejecute primero el documento de [Preparación de Datos](data_cleaning.qmd), que genera los archivos procesados necesarios. A continuación, explore el documento de [Análisis y Visualizaciones](visualizations.qmd).
+:::
+
+---
+
+<p style="font-size:0.8rem; color:#6B7280; margin-top:3rem;">
+Datos: Municipio del Distrito Metropolitano de Quito · Sistema de Información Geográfica Municipal ·
+Proyecto desarrollado con Python, GeoPandas, Altair y Quarto.
+</p>
