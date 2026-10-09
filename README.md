@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![Quarto](https://img.shields.io/badge/quarto-1.5%2B-39729E)
 
-**Prueba de concepto desarrollada para la maestría** con dos objetivos: (1) explorar cómo [Quarto](https://quarto.org) renderiza documentos con código Python en un sitio web estático publicable (GitHub Pages), y (2) aplicarlo a un caso real: el análisis geoespacial del catastro predial del Distrito Metropolitano de Quito (DMQ), ~1 millón de predios del Municipio, para estudiar el valor del suelo, su uso y la desigualdad territorial entre las administraciones zonales.
+**Prueba de concepto para explorar cómo funciona [Quarto](https://quarto.org) en la visualización de datos:** cómo renderiza documentos con código Python en un sitio web estático publicable (GitHub Pages). Se aplica a un caso real: el análisis geoespacial del catastro predial del Distrito Metropolitano de Quito (DMQ), ~1 millón de predios del Municipio, para estudiar el valor del suelo, su uso y la desigualdad territorial entre las administraciones zonales.
 
 🔗 **Sitio publicado:** <https://faustoaguanor.github.io/VIZ/>
 
@@ -26,7 +26,7 @@
 
 ## Resumen del proyecto
 
-El proyecto es académico y de carácter experimental: su foco es el flujo de trabajo *Quarto → HTML estático → GitHub Pages*, más que un estudio definitivo del catastro.
+El proyecto es experimental: su foco es el flujo de trabajo *Quarto → HTML estático → GitHub Pages*, más que un estudio definitivo del catastro.
 
 El catastro es un inventario sistemático de cada predio —su geometría, uso, superficie y avalúo— y una de las fuentes más completas y subutilizadas para entender cómo se distribuye el territorio. Este proyecto lo convierte en un sitio web interactivo que responde cinco preguntas de planificación urbana mediante gráficos estadísticos (Altair) y mapas (Folium/Leaflet).
 
