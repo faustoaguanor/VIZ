@@ -33,8 +33,10 @@ muestra  = pd.read_parquet(MUESTRA_PARQUET)
 stats    = pd.read_parquet(ZONAS_STATS)
 zonas    = gpd.read_file(ZONAS_GEOJSON)
 
-with open(ZONAS_GEOJSON, encoding="utf-8") as f:
-    zonas_geojson = json.load(f)
+# Simplificar los límites (~20 m) para aligerar la página: cada gráfico
+# incrusta la geometría y sin simplificar supera los 7 MB por gráfico.
+zonas["geometry"] = zonas.geometry.simplify(0.0002, preserve_topology=True)
+zonas_geojson = json.loads(zonas.to_json())
 
 print(f"Predios cargados : {len(predios):,}")
 print(f"Muestra cargada  : {len(muestra):,}")
