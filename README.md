@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![Quarto](https://img.shields.io/badge/quarto-1.5%2B-39729E)
 
-**Análisis geoespacial del catastro predial del Distrito Metropolitano de Quito (DMQ):** cómo varían el valor del suelo, el uso del suelo y la desigualdad territorial entre las administraciones zonales, a partir de ~1 millón de predios del Municipio.
+**Prueba de concepto desarrollada para la maestría** con dos objetivos: (1) explorar cómo [Quarto](https://quarto.org) renderiza documentos con código Python en un sitio web estático publicable (GitHub Pages), y (2) aplicarlo a un caso real: el análisis geoespacial del catastro predial del Distrito Metropolitano de Quito (DMQ), ~1 millón de predios del Municipio, para estudiar el valor del suelo, su uso y la desigualdad territorial entre las administraciones zonales.
 
 🔗 **Sitio publicado:** <https://faustoaguanor.github.io/VIZ/>
 
@@ -22,8 +22,11 @@
 - [Estructura del repositorio](#estructura-del-repositorio)
 - [Limitaciones](#limitaciones)
 - [Autoría, fuente y licencia](#autoría-fuente-y-licencia)
+- [Atribuciones de librerías](#atribuciones-de-librerías)
 
 ## Resumen del proyecto
+
+El proyecto es académico y de carácter experimental: su foco es el flujo de trabajo *Quarto → HTML estático → GitHub Pages*, más que un estudio definitivo del catastro.
 
 El catastro es un inventario sistemático de cada predio —su geometría, uso, superficie y avalúo— y una de las fuentes más completas y subutilizadas para entender cómo se distribuye el territorio. Este proyecto lo convierte en un sitio web interactivo que responde cinco preguntas de planificación urbana mediante gráficos estadísticos (Altair) y mapas (Folium/Leaflet).
 
@@ -149,4 +152,26 @@ Al renderizar, `data_cleaning.qmd` genera `datos/processed/` (ignorado por git) 
 
 **Autor:** Fausto Guano · [@faustoaguanor](https://github.com/faustoaguanor)
 
-Código y textos bajo licencia **MIT** — ver [LICENSE](LICENSE). Los datos pertenecen al Municipio del Distrito Metropolitano de Quito y están sujetos a sus propios términos de uso.
+Código y textos de este repositorio bajo licencia **MIT** — ver [LICENSE](LICENSE) (© 2026 Fausto Guano). Los datos pertenecen al Municipio del Distrito Metropolitano de Quito y están sujetos a sus propios términos de uso.
+
+## Atribuciones de librerías
+
+Este proyecto se apoya en software libre. Gracias a sus autores y comunidades:
+
+| Componente | Uso | Licencia |
+|------------|-----|----------|
+| [Quarto](https://quarto.org) | Publicación del sitio | GPL-2.0 |
+| [Jupyter / ipykernel](https://jupyter.org) | Ejecución del código | BSD-3-Clause |
+| [pandas](https://pandas.pydata.org) · [NumPy](https://numpy.org) | Datos tabulares y cálculo | BSD-3-Clause |
+| [GeoPandas](https://geopandas.org) · [Shapely](https://shapely.readthedocs.io) | Datos y geometrías espaciales | BSD-3-Clause |
+| [pyogrio](https://pyogrio.readthedocs.io) | Lectura de geodatabases y shapefiles | MIT |
+| [PyArrow](https://arrow.apache.org/docs/python/) | Archivos Parquet | Apache-2.0 |
+| [Altair](https://altair-viz.github.io) · [Vega-Lite](https://vega.github.io/vega-lite/) | Gráficos estadísticos | BSD-3-Clause |
+| [Folium](https://python-visualization.github.io/folium/) · [Branca](https://github.com/python-visualization/branca) · [Leaflet](https://leafletjs.com) | Mapas interactivos | MIT / BSD-2-Clause |
+| [ipyleaflet](https://ipyleaflet.readthedocs.io) | Mapas en Jupyter | MIT |
+| [PyYAML](https://pyyaml.org) | Lectura de configuración | MIT |
+| [Bootstrap](https://getbootstrap.com) · [Bootswatch *Flatly*](https://bootswatch.com/flatly/) | Tema visual del sitio | MIT |
+
+**Mapas base:** teselas © [CARTO](https://carto.com/attributions) con datos © [colaboradores de OpenStreetMap](https://www.openstreetmap.org/copyright) (ODbL).
+
+Las licencias indicadas corresponden a la versión vigente de cada proyecto; consulte su repositorio para el texto oficial.
