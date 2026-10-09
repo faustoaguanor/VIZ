@@ -75,7 +75,7 @@ Base de datos catastral con información de cada predio del DMQ. Contiene atribu
   <div class="metric-label">Variables por predio</div>
 </div>
 <div class="metric-card">
-  <div class="metric-value">11</div>
+  <div class="metric-value">10</div>
   <div class="metric-label">Zonas administrativas</div>
 </div>
 <div class="metric-card">
@@ -91,7 +91,7 @@ Variables clave: `admzonal` (administración zonal), `desteconomico` (uso del su
 
 Los avalúos catastrales son **valoraciones administrativas** del municipio, no precios de mercado. El proceso de actualización catastral no es continuo: los valores se revisan periódicamente y pueden rezagarse respecto a la dinámica inmobiliaria real, especialmente en zonas de alta demanda donde el mercado crece más rápido que el catastro.
 
-Esto implica dos cosas para este análisis: (1) los valores absolutos en USD/m² no deben interpretarse como precios de compraventa vigentes; (2) los **patrones relativos entre zonas** —cuál zona vale más, cuánta desigualdad interna existe, cómo se distribuye el uso, sí son válidos y comparables, ya que el sesgo afecta a todas las zonas por igual. El catastro es, en ese sentido, un espejo del territorio aunque no sea un termómetro exacto del mercado.
+Esto implica dos cosas para este análisis: (1) los valores absolutos en USD/m² no deben interpretarse como precios de compraventa vigentes; (2) los **patrones relativos entre zonas** (cuál zona vale más, cuánta desigualdad interna existe, cómo se distribuye el uso) sí son válidos y comparables, ya que el sesgo afecta a todas las zonas por igual. El catastro es, en ese sentido, un espejo del territorio aunque no sea un termómetro exacto del mercado.
 :::
 
 ### Administraciones Zonales (`organizacion_territorial_zonal_a.shp`)
@@ -122,7 +122,7 @@ El diseño de este proyecto sigue el **modelo anidado de Munzner (2009)**, el ma
 | **Codificación visual** | ¿Qué tipo de gráfico es el más adecuado para cada tarea? | Barras para comparar, boxplot para distribuciones, scatter para relaciones, coroplético y mapa de puntos para el espacio |
 | **Algoritmo** | ¿Cómo se implementa eficientemente? | GeoPandas, Altair y muestras estratificadas para manejar ~1 M de predios en el navegador |
 
-La principal advertencia del modelo es que un error en un nivel superior, por ejemplo, mal entender el problema del dominio— arruina todo lo que viene debajo, sin importar qué tan sofisticada sea la implementación técnica. Este proyecto parte del dominio (planificación urbana y catastro) antes de decidir cualquier codificación visual.
+La principal advertencia del modelo es que un error en un nivel superior, por ejemplo, malentender el problema del dominio, arruina todo lo que viene debajo, sin importar qué tan sofisticada sea la implementación técnica. Este proyecto parte del dominio (planificación urbana y catastro) antes de decidir cualquier codificación visual.
 
 ## Estructura del proyecto
 
