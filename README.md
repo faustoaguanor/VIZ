@@ -1,13 +1,10 @@
 # Visualización del Territorio · Quito
 
-[![Sitio](https://img.shields.io/badge/sitio-GitHub%20Pages-2c7a7b)](https://faustoaguanor.github.io/VIZ/)
-[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
-![Quarto](https://img.shields.io/badge/quarto-1.5%2B-39729E)
+Prueba de concepto sobre cómo funciona **[Quarto](https://quarto.org)** para visualizar datos: documentos con código Python que se renderizan como un sitio web estático y se publican en GitHub Pages.
 
-**Prueba de concepto para explorar cómo funciona [Quarto](https://quarto.org) en la visualización de datos:** cómo renderiza documentos con código Python en un sitio web estático publicable (GitHub Pages). Se aplica a un caso real: el análisis geoespacial del catastro predial del Distrito Metropolitano de Quito (DMQ), ~1 millón de predios del Municipio, para estudiar el valor del suelo, su uso y la desigualdad territorial entre las administraciones zonales.
+Como caso de aplicación se usa el catastro predial del Distrito Metropolitano de Quito (~1 millón de predios) para explorar el valor del suelo, su uso y la desigualdad entre las administraciones zonales.
 
-🔗 **Sitio publicado:** <https://faustoaguanor.github.io/VIZ/>
+**Sitio publicado:** <https://faustoaguanor.github.io/VIZ/> · **Licencia:** [MIT](LICENSE)
 
 ---
 
